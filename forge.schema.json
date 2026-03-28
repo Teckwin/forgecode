@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workflow",
+  "description": "Configuration for a workflow that contains all settings\nrequired to initialize a workflow.",
+  "type": "object",
+  "properties": {
+    "commands": {
+      "description": "Commands that can be used to interact with the workflow",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Command"
+      }
+    },
+    "compact": {
+      "description": "Configuration for automatic context compaction for all agents\nIf specified, this will be applied to all agents in the workflow\nIf not specified, each agent's individual setting will be used",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Compact"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "custom_rules": {
+      "description": "A set of custom rules that all agents should follow\nThese rules will be applied in addition to each agent's individual rules",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "max_requests_per_turn": {
+      "description": "Maximum number of requests that can be made in a single turn",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    },
+    "max_tokens": {
+      "description": "Maximum number of tokens the model can generate for all agents\n\nControls the maximum length of the model's response.\n- Lower values (e.g., 100) limit response length for concise outputs\n- Higher values (e.g., 4000) allow for longer, more detailed responses\n- Valid range is 1 to 100,000\n- If not specified, each agent's individual setting or the model\n  provider's default will be used",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MaxTokens"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "max_tool_failure_per_turn": {
+      "description": "Maximum number of times a tool can fail before the orchestrator\nforces the completion.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    },
+    "temperature": {
+      "description": "Temperature used for all agents\n\nTemperature controls the randomness in the model's output.\n- Lower values (e.g., 0.1) make responses more focused, deterministic,\n  and coherent\n- Higher values (e.g., 0.8) make responses more creative, diverse, and\n  exploratory\n- Valid range is 0.0 to 2.0\n- If not specified, each agent's individual setting or the model\n  provider's default will be used",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Temperature"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "templates": {
+      "description": "Path pattern for custom template files (supports glob patterns)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_supported": {
+      "description": "Flag to enable/disable tool support for all agents in this workflow.\nIf not specified, each agent's individual setting will be used.\nDefault is false (tools disabled) when not specified.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "top_k": {
+      "description": "Top-k used for all agents\n\nControls the number of highest probability vocabulary tokens to keep.\n- Lower values (e.g., 10) make responses more focused\n- Higher values (e.g., 100) make responses more diverse\n- Valid range is 1 to 1000\n- If not specified, each agent's individual setting or the model\n  provider's default will be used",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TopK"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "top_p": {
+      "description": "Top-p (nucleus sampling) used for all agents\n\nControls the diversity of the model's output by considering only the\nmost probable tokens up to a cumulative probability threshold.\n- Lower values (e.g., 0.1) make responses more focused\n- Higher values (e.g., 0.9) make responses more diverse\n- Valid range is 0.0 to 1.0\n- If not specified, each agent's individual setting or the model\n  provider's default will be used",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TopP"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "updates": {
+      "description": "configurations that can be used to update forge",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Update"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "Command": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ]
+    },
+    "Compact": {
+      "description": "Configuration for automatic context compaction",
+      "type": "object",
+      "properties": {
+        "eviction_window": {
+          "description": "Maximum percentage of the context that can be summarized during\ncompaction. Valid values are between 0.0 and 1.0, where 0.0 means no\ncompaction and 1.0 allows summarizing all messages. Works alongside\nretention_window - the more conservative limit (fewer messages to\ncompact) takes precedence.",
+          "type": "number",
+          "format": "double",
+          "default": 0.0
+        },
+        "max_tokens": {
+          "description": "Maximum number of tokens to keep after compaction",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "message_threshold": {
+          "description": "Maximum number of messages before triggering compaction",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "model": {
+          "description": "Model ID to use for compaction, useful when compacting with a\ncheaper/faster model. If not specified, the root level model will be\nused.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "on_turn_end": {
+          "description": "Whether to trigger compaction when the last message is from a user",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "retention_window": {
+          "description": "Number of most recent messages to preserve during compaction.\nThese messages won't be considered for summarization. Works alongside\neviction_window - the more conservative limit (fewer messages to\ncompact) takes precedence.",
+          "type": "integer",
+          "format": "uint",
+          "default": 0,
+          "minimum": 0
+        },
+        "summary_tag": {
+          "description": "Optional tag name to extract content from when summarizing (e.g.,\n\"summary\")",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "token_threshold": {
+          "description": "Maximum number of tokens before triggering compaction",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "turn_threshold": {
+          "description": "Maximum number of conversation turns before triggering compaction",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        }
+      }
+    },
+    "MaxTokens": {
+      "description": "A newtype for max_tokens values with built-in validation\n\nMax tokens controls the maximum number of tokens the model can generate:\n- Lower values (e.g., 100) limit response length for concise outputs\n- Higher values (e.g., 4000) allow for longer, more detailed responses\n- Valid range is 1 to 100,000 (reasonable upper bound for most models)\n- If not specified, the model provider's default will be used",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "Temperature": {
+      "description": "A newtype for temperature values with built-in validation\n\nTemperature controls the randomness in the model's output:\n- Lower values (e.g., 0.1) make responses more focused, deterministic, and\n  coherent\n- Higher values (e.g., 0.8) make responses more creative, diverse, and\n  exploratory\n- Valid range is 0.0 to 2.0",
+      "type": "number",
+      "format": "float"
+    },
+    "TopK": {
+      "description": "A newtype for top_k values with built-in validation\n\nTop-k controls the number of highest probability vocabulary tokens to keep:\n- Lower values (e.g., 10) make responses more focused by considering only\n  the top K most likely tokens\n- Higher values (e.g., 100) make responses more diverse by considering more\n  token options\n- Valid range is 1 to 1000 (inclusive)",
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "TopP": {
+      "description": "A newtype for top_p values with built-in validation\n\nTop-p (nucleus sampling) controls the diversity of the model's output:\n- Lower values (e.g., 0.1) make responses more focused by considering only\n  the most probable tokens\n- Higher values (e.g., 0.9) make responses more diverse by considering a\n  broader range of tokens\n- Valid range is 0.0 to 1.0",
+      "type": "number",
+      "format": "float"
+    },
+    "Update": {
+      "type": "object",
+      "properties": {
+        "auto_update": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "frequency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UpdateFrequency"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "UpdateFrequency": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "always"
+      ]
+    }
+  }
+}
