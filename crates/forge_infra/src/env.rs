@@ -171,6 +171,8 @@ fn to_environment(fc: ForgeConfig, cwd: PathBuf) -> Environment {
         max_tokens: fc.max_tokens.and_then(|v| MaxTokens::new(v).ok()),
         max_tool_failure_per_turn: fc.max_tool_failure_per_turn,
         max_requests_per_turn: fc.max_requests_per_turn,
+        reenter_limit: fc.reenter_limit,
+        reenter_window_secs: fc.reenter_window_secs,
         compact: fc.compact.map(to_compact),
         updates: fc.updates.map(to_update),
     }
@@ -330,6 +332,8 @@ fn to_forge_config(env: &Environment) -> ForgeConfig {
     fc.max_tokens = env.max_tokens.map(|t| t.value());
     fc.max_tool_failure_per_turn = env.max_tool_failure_per_turn;
     fc.max_requests_per_turn = env.max_requests_per_turn;
+    fc.reenter_limit = env.reenter_limit;
+    fc.reenter_window_secs = env.reenter_window_secs;
     fc.compact = env.compact.as_ref().map(from_compact);
     fc.updates = env.updates.as_ref().map(from_update);
 
@@ -415,6 +419,7 @@ impl EnvironmentInfra for ForgeEnvironmentInfra {
         let fc = ConfigReader::default()
             .read_defaults()
             .read_global()
+            .read_local()
             .build()?;
 
         debug!(config = ?fc, "loaded config for update");

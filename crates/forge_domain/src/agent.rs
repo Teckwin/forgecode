@@ -45,6 +45,19 @@ pub struct Agent {
     /// Maximum number of turns the agent can take
     pub max_turns: Option<u64>,
 
+    /// Maximum number of times the agent can re-enter with the same input
+    /// within the reenter_window_secs time window
+    pub reenter_limit: Option<usize>,
+
+    /// Time window in seconds for re-enter detection
+    pub reenter_window_secs: Option<u64>,
+
+    /// Override API key for this agent
+    pub api_key: Option<String>,
+
+    /// Override base URL for this agent
+    pub base_url: Option<String>,
+
     /// Configuration for automatic context compaction
     pub compact: Compact,
 
@@ -87,6 +100,10 @@ impl Agent {
             user_prompt: Default::default(),
             tools: Default::default(),
             max_turns: Default::default(),
+            reenter_limit: Default::default(),
+            reenter_window_secs: Default::default(),
+            api_key: Default::default(),
+            base_url: Default::default(),
             compact: Compact::default(),
             custom_rules: Default::default(),
             temperature: Default::default(),
@@ -140,6 +157,14 @@ impl Agent {
         }
 
         agent.tool_supported = Some(env.tool_supported);
+
+        if agent.reenter_limit.is_none() && let Some(reenter_limit) = env.reenter_limit {
+            agent.reenter_limit = Some(reenter_limit);
+        }
+
+        if agent.reenter_window_secs.is_none() && let Some(reenter_window_secs) = env.reenter_window_secs {
+            agent.reenter_window_secs = Some(reenter_window_secs);
+        }
 
         if agent.max_requests_per_turn.is_none()
             && let Some(max_requests_per_turn) = env.max_requests_per_turn
@@ -198,6 +223,10 @@ impl Agent {
             reasoning: def.reasoning,
             compact: def.compact.unwrap_or_default(),
             max_turns: def.max_turns,
+            reenter_limit: def.reenter_limit,
+            reenter_window_secs: def.reenter_window_secs,
+            api_key: def.api_key,
+            base_url: def.base_url,
             custom_rules: def.custom_rules,
             max_tool_failure_per_turn: def.max_tool_failure_per_turn,
             max_requests_per_turn: def.max_requests_per_turn,

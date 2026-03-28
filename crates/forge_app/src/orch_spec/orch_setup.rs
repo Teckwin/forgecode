@@ -106,6 +106,8 @@ impl Default for TestContext {
                 max_requests_per_turn: None,
                 compact: None,
                 updates: None,
+                reenter_limit: None,
+                reenter_window_secs: None,
             },
             title: Some("test-conversation".into()),
             agent: Agent::new(

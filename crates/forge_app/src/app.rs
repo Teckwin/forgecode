@@ -44,12 +44,20 @@ impl<S: Services> ForgeApp<S> {
     ) -> Result<MpscStream<Result<ChatResponse, anyhow::Error>>> {
         let services = self.services.clone();
 
-        // Get the conversation for the chat request
-        let conversation = services
+        // Get the conversation for the chat request, creating one if it doesn't exist
+        let mut conversation = services
             .find_conversation(&chat.conversation_id)
             .await
-            .unwrap_or_default()
-            .expect("conversation for the request should've been created at this point.");
+            .unwrap_or_default();
+
+        // Create a new conversation if it doesn't exist
+        if conversation.is_none() {
+            let new_conversation = Conversation::new(chat.conversation_id);
+            services.upsert_conversation(new_conversation.clone()).await?;
+            conversation = Some(new_conversation);
+        }
+
+        let conversation = conversation.expect("conversation for the request should've been created at this point.");
 
         // Discover files using the discovery service
         let workflow = services.get_environment();

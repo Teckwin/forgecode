@@ -3185,6 +3185,12 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
                     InterruptionReason::MaxToolFailurePerTurnLimitReached { limit, .. } => {
                         format!("Maximum tool failure limit ({limit}) reached for this turn")
                     }
+                    InterruptionReason::MaxTurnsLimitReached { limit } => {
+                        format!("Maximum turns ({limit}) limit reached")
+                    }
+                    InterruptionReason::ReenterLimitReached { limit, window_secs } => {
+                        format!("Re-enter limit ({limit}) reached within {window_secs}s window")
+                    }
                 };
 
                 self.writeln_title(TitleFormat::action(title))?;

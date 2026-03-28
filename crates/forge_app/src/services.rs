@@ -17,6 +17,7 @@ use url::Url;
 
 use crate::user::{User, UserUsage};
 use crate::{EnvironmentInfra, Walker};
+use crate::agent_config_service::AgentConfigService;
 
 #[derive(Debug, Clone)]
 pub struct ShellOutput {
@@ -545,6 +546,7 @@ pub trait ProviderAuthService: Send + Sync {
 pub trait Services: Send + Sync + 'static + Clone + EnvironmentInfra {
     type ProviderService: ProviderService;
     type AppConfigService: AppConfigService;
+    type AgentConfigService: AgentConfigService;
     type ConversationService: ConversationService;
     type TemplateService: TemplateService;
     type AttachmentService: AttachmentService;
@@ -573,6 +575,7 @@ pub trait Services: Send + Sync + 'static + Clone + EnvironmentInfra {
 
     fn provider_service(&self) -> &Self::ProviderService;
     fn config_service(&self) -> &Self::AppConfigService;
+    fn agent_config_service(&self) -> &Self::AgentConfigService;
     fn conversation_service(&self) -> &Self::ConversationService;
     fn template_service(&self) -> &Self::TemplateService;
     fn attachment_service(&self) -> &Self::AttachmentService;
@@ -637,6 +640,22 @@ impl<I: Services> ConversationService for I {
             .await
     }
 }
+
+#[async_trait::async_trait]
+impl<I: Services> AgentConfigService for I {
+    async fn get_agent_config(&self, agent_id: &AgentId) -> anyhow::Result<Option<forge_domain::Agent>> {
+        self.agent_config_service().get_agent_config(agent_id).await
+    }
+
+    async fn get_all_agent_configs(&self) -> anyhow::Result<Vec<forge_domain::Agent>> {
+        self.agent_config_service().get_all_agent_configs().await
+    }
+
+    async fn reload_configs(&self) -> anyhow::Result<()> {
+        self.agent_config_service().reload_configs().await
+    }
+}
+
 #[async_trait::async_trait]
 impl<I: Services> ProviderService for I {
     async fn chat(

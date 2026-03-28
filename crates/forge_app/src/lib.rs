@@ -1,6 +1,7 @@
 mod agent;
 mod agent_executor;
 mod agent_provider_resolver;
+pub mod agent_config_service;
 mod app;
 mod apply_tunable_parameters;
 mod changed_files;
@@ -39,6 +40,7 @@ mod walker;
 mod workspace_status;
 
 pub use agent::*;
+pub use agent_config_service::*;
 pub use agent_provider_resolver::*;
 pub use app::*;
 pub use command_generator::*;

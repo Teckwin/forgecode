@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_recursion::async_recursion;
 use derive_setters::Setters;
-use forge_domain::{Agent, *};
+use forge_domain::{Agent, ContextMessage, Role, TextMessage, *};
 use forge_template::Element;
 use tokio::sync::Notify;
 use tracing::warn;
@@ -206,6 +206,13 @@ impl<S: AgentService> Orchestrator<S> {
 
         // Retrieve the number of requests allowed per tick.
         let max_requests_per_turn = self.agent.max_requests_per_turn;
+        // Retrieve the maximum number of turns allowed for this agent.
+        let max_turns = self.agent.max_turns;
+        // Retrieve re-enter detection settings
+        let reenter_limit = self.agent.reenter_limit;
+        let reenter_window_secs = self.agent.reenter_window_secs.unwrap_or(5);
+        // Track re-enter events: key is the input hash, value is list of timestamps
+        let mut reenter_tracker: HashMap<String, Vec<Instant>> = HashMap::new();
         let tool_context =
             ToolCallContext::new(self.conversation.metrics.clone()).sender(self.sender.clone());
 
@@ -330,6 +337,86 @@ impl<S: AgentService> Orchestrator<S> {
             self.conversation.context = Some(context.clone());
             self.services.update(self.conversation.clone()).await?;
             request_count += 1;
+
+            // Check if agent has reached the maximum turns limit
+            if !should_yield && let Some(max_turns_limit) = max_turns {
+                // request_count represents the number of turns (each iteration is one turn)
+                if request_count as u64 >= max_turns_limit {
+                    // Log warning - important for understanding conversation interruptions
+                    warn!(
+                        agent_id = %self.agent.id,
+                        model_id = %model_id,
+                        request_count,
+                        max_turns_limit,
+                        "Agent has reached the maximum turns limit"
+                    );
+                    // raise an interrupt event to notify the UI
+                    self.send(ChatResponse::Interrupt {
+                        reason: InterruptionReason::MaxTurnsLimitReached {
+                            limit: max_turns_limit,
+                        },
+                    })
+                    .await?;
+                    // force completion
+                    should_yield = true;
+                }
+            }
+
+            // Check for re-enter loop: same user input repeated within time window
+            if !should_yield && let Some(reenter_limit) = reenter_limit {
+                // Extract last user message content for hashing
+                let input_hash = context
+                    .messages
+                    .iter()
+                    .rev()
+                    .filter_map(|entry| {
+                        if let ContextMessage::Text(TextMessage { role: Role::User, content, .. }) =
+                            &entry.message
+                        {
+                            Some(content.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .next()
+                    .map(|content| {
+                        // Simple hash: use the content string directly as key
+                        // For production, could use a proper hash function like xxhash
+                        content
+                    });
+
+                if let Some(hash_key) = input_hash {
+                    let now = Instant::now();
+                    let window = Duration::from_secs(reenter_window_secs);
+
+                    // Get existing timestamps for this input and filter out old ones
+                    let timestamps = reenter_tracker.entry(hash_key).or_insert_with(Vec::new);
+                    timestamps.retain(|t| now.duration_since(*t) < window);
+
+                    // Add current timestamp
+                    timestamps.push(now);
+
+                    // Check if we've exceeded the re-enter limit
+                    if timestamps.len() > reenter_limit {
+                        warn!(
+                            agent_id = %self.agent.id,
+                            model_id = %model_id,
+                            reenter_count = timestamps.len(),
+                            reenter_limit,
+                            reenter_window_secs,
+                            "Agent has exceeded re-enter limit with same input"
+                        );
+                        self.send(ChatResponse::Interrupt {
+                            reason: InterruptionReason::ReenterLimitReached {
+                                limit: reenter_limit,
+                                window_secs: reenter_window_secs,
+                            },
+                        })
+                        .await?;
+                        should_yield = true;
+                    }
+                }
+            }
 
             if !should_yield && let Some(max_request_allowed) = max_requests_per_turn {
                 // Check if agent has reached the maximum request per turn limit

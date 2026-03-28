@@ -1,0 +1,326 @@
+# =============================================================================
+# Forge 配置文件示例
+# 此文件包含所有可配置项的详细说明
+# 复制此文件到 .forge/setting.yaml 并根据需要修改
+# =============================================================================
+
+# =============================================================================
+# 第一部分：全局会话配置
+# =============================================================================
+# 当Agent未指定provider/model时使用此配置
+session:
+  provider: anthropic  # 模型提供商
+  model: claude-sonnet-4-6  # 模型ID
+
+# -----------------------------------------------------------------------------
+# 支持的 Provider 和 Model
+# -----------------------------------------------------------------------------
+# Provider: anthropic
+#   - claude-opus-4-6 (推荐，最强能力)
+#   - claude-sonnet-4-6 (推荐，性价比高)
+#   - claude-3-5-sonnet-20241022
+#   - claude-3-5-haiku-20241022 (最快，最便宜)
+#   - claude-3-opus-20240229
+#   - claude-3-sonnet-20240229
+#   - claude-3-haiku-20240307
+#
+# Provider: openai
+#   - gpt-4-turbo
+#   - gpt-4o (最新最强)
+#   - gpt-4o-mini (最快，最便宜)
+#   - gpt-4
+#   - gpt-3.5-turbo
+#
+# Provider: google
+#   - gemini-2.0-flash-exp
+#   - gemini-1.5-pro
+#   - gemini-1.5-flash
+#   - gemini-1.5-flash-8b
+#
+# Provider: xai
+#   - grok-2-1212
+#   - grok-2-vision-1212
+#   - grok-beta
+
+
+# =============================================================================
+# 第二部分：重入检测配置
+# =============================================================================
+# 防止无限循环：相同输入在短时间内重复执行时触发告警
+# -----------------------------------------------------------------------------
+reenter_limit: 2  # [int] 最大重入次数，超过此值视为循环
+                  # 建议: 1-5
+                  # 使用场景: 防止AI陷入重复调用相同工具的循环
+
+reenter_window_secs: 60  # [int] 重入检测时间窗口，单位秒
+                         # 建议: 30-300
+                         # 使用场景: 在此时间内检测到相同输入重复执行则触发告警
+
+
+# =============================================================================
+# 第三部分：全局模型参数
+# 可作为所有Agent的默认值，具体Agent可覆盖
+# -----------------------------------------------------------------------------
+temperature: 0.7  # [float] 温度：控制随机性
+                  # 范围: 0.0 - 2.0
+                  # 使用场景:
+                  #   - 0.1-0.3: 精确、确定性输出，适合编码/分析/推理
+                  #   - 0.5: 平衡模式
+                  #   - 0.7-1.0: 创意、多样输出，适合写作/头脑风暴/创意任务
+                  # 建议: 编码用0.1-0.3，创意用0.7-1.0
+
+top_p: 0.9  # [float] 核采样：控制多样性
+            # 范围: 0.0 - 1.0
+            # 使用场景: 值越高，生成的token越多样
+            # 建议: 0.9 (与temperature配合使用)
+
+top_k: 40  # [int] Top-K采样：考虑的最高概率词数
+           # 范围: 1 - 1000
+           # 使用场景: 限制采样池大小，值越小越保守
+           # 建议: 40
+
+max_tokens: 4096  # [int] 最大生成token数
+                  # 范围: 1 - 100000
+                  # 使用场景: 限制单次响应长度
+                  # 建议: 编码用4096，写作用8192-16384
+
+
+# =============================================================================
+# 第四部分：全局行为限制
+# -----------------------------------------------------------------------------
+max_turns: 50  # [int] 最大对话轮次
+               # 范围: 1 - 1000
+               # 使用场景: 限制单次会话的总轮次，防止无限对话
+               # 建议: 30-100
+
+max_tool_failure_per_turn: 3  # [int] 每轮工具最大失败次数
+                               # 范围: 1 - 100
+                               # 使用场景: 工具连续失败后停止重试
+                               # 建议: 3-5
+
+max_requests_per_turn: 10  # [int] 每轮最大请求数
+                           # 范围: 1 - 100
+                           # 使用场景: 限制单轮内的API调用次数
+                           # 建议: 5-20
+
+
+# =============================================================================
+# 第五部分：上下文压缩配置
+# 当上下文过长时自动压缩
+# -----------------------------------------------------------------------------
+compact:
+  enabled: true  # [bool] 是否启用压缩
+                 # 使用场景: 长对话时自动压缩历史消息
+
+  strategy: summarize  # [enum] 压缩策略
+                       # 枚举: summarize, prune
+                       #   - summarize: 摘要保留要点
+                       #   - prune: 直接删除旧消息
+                       # 建议: summarize
+
+  preserve_recent: 5  # [int] 保留最近N条消息不被压缩
+                      # 范围: 1 - 50
+                      # 使用场景: 确保最近对话完整保留
+                      # 建议: 3-10
+
+
+# =============================================================================
+# 第六部分：Agent定义
+# =============================================================================
+# 在此文件中直接定义agent，无需创建单独的yaml文件
+# 使用 agents 字段，key为agent_id，value为agent配置
+# 配置优先级：Agent定义 > 项目配置 > 全局配置 > 默认值
+
+agents:
+  # -----------------------------------------------------------------------------
+  # Agent配置项完整说明
+  # -----------------------------------------------------------------------------
+  # my_agent:  # key为agent_id，必须唯一
+  #
+  #   # === 基础信息 ===
+  #   id: my_agent  # [string] Agent唯一标识，应与key一致
+  #
+  #   description: "Agent描述"  # [string] Agent用途说明
+  #
+  #
+  #   # === 模型配置 ===
+  #   provider: anthropic  # [enum] 模型提供商
+  #                        # 枚举: anthropic, openai, google, xai, anthropic-compatible
+  #
+  #   model: claude-sonnet-4-6  # [string] 模型ID
+  #
+  #   api_key: sk-xxx  # [string] 可选：覆盖默认API密钥
+  #                     # 使用场景: 使用不同的API Key
+  #
+  #   base_url: https://custom-api.example.com/v1  # [string] 可选：自定义API端点
+  #                                                    # 使用场景: 使用第三方代理/路由
+  #
+  #
+  #   # === 模型参数 ===
+  #   temperature: 0.7  # [float] 温度
+  #                     # 范围: 0.0 - 2.0
+  #                     # 使用场景: 见全局参数说明
+  #
+  #   top_p: 0.9  # [float] 核采样
+  #               # 范围: 0.0 - 1.0
+  #
+  #   top_k: 40  # [int] Top-K
+  #              # 范围: 1 - 1000
+  #
+  #   max_tokens: 4096  # [int] 最大生成token数
+  #                     # 范围: 1 - 100000
+  #
+  #
+  #   # === 行为限制 ===
+  #   max_turns: 50  # [int] 最大对话轮次
+  #                  # 范围: 1 - 1000
+  #
+  #   max_tool_failure_per_turn: 3  # [int] 每轮工具失败上限
+  #                                  # 范围: 1 - 100
+  #
+  #   max_requests_per_turn: 10  # [int] 每轮最大请求数
+  #                              # 范围: 1 - 100
+  #
+  #   reenter_limit: 3  # [int] 重入检测限制
+  #                     # 范围: 1 - 100
+  #
+  #   reenter_window_secs: 300  # [int] 重入检测时间窗口
+  #                              # 范围: 1 - 3600
+  #
+  #
+  #   # === 工具配置 ===
+  #   tool_supported: true  # [bool] 是否启用工具支持
+  #                         # 使用场景: 禁用工具则Agent只能对话
+  #
+  #   tools:  # [array] 可用工具列表
+  #     # 核心工具:
+  #     - fs_read        # 文件读取
+  #     - fs_write       # 文件写入
+  #     - shell          # Shell命令执行
+  #     - search         # 代码搜索
+  #     - fetch          # 网页抓取
+  #
+  #     # 开发者工具:
+  #     - mcp_forge_extension_tool_document_symbols    # 获取文件符号(类/函数/变量等)
+  #     - mcp_forge_extension_tool_workspace_symbols   # 工作区符号搜索
+  #     - mcp_forge_extension_tool_rename_symbol       # 符号重命名(跨文件)
+  #     - mcp_forge_extension_tool_go_to_definition    # 跳转到定义
+  #     - mcp_forge_extension_tool_find_references     # 查找引用
+  #     - mcp_forge_extension_tool_hover               # 悬停查看类型信息
+  #     - mcp_forge_extension_tool_get_diagnostics     # 获取错误/警告/提示
+  #     - mcp_forge_extension_tool_get_active_file     # 获取当前活动文件
+  #
+  #     # 扩展工具:
+  #     - todo_write     # 任务管理
+  #     - todo_read      # 任务列表查看
+  #
+  #
+  #   # === 推理配置 ===
+  #   # 适用于支持推理的模型 (如Claude Opus 4.6)
+  #   reasoning:
+  #     enabled: true  # [bool] 是否启用推理
+  #                     # 使用场景: 复杂问题让AI先思考再回答
+  #
+  #     effort: medium  # [enum] 推理强度
+  #                     # 枚举: low, medium, high
+  #                     #   - low: 快速推理，适合简单任务
+  #                     #   - medium: 平衡模式
+  #                     #   - high: 深度推理，适合复杂问题
+  #
+  #     max_tokens: 8000  # [int] 推理过程最大token数
+  #                        # 范围: 1 - 32000
+  #                        # 使用场景: 复杂问题增加推理token
+  #
+  #
+  #   # === 上下文压缩 ===
+  #   compact:  # 与全局compact相同，可覆盖全局配置
+  #     enabled: true
+  #     strategy: summarize
+  #     preserve_recent: 5
+  #
+  #
+  #   # === 系统提示 ===
+  #   system_prompt: |  # [string] 自定义系统提示
+  #     You are an expert software developer.
+  #     You have deep knowledge of multiple programming languages.
+  #
+  #
+  #   # === 自定义规则 ===
+  #   custom_rules: |  # [string] 自定义规则
+  #     - Always write tests for new code
+  #     - Follow the project's coding style
+
+
+  # -----------------------------------------------------------------------------
+  # 示例Agent: Coder (编码专家)
+  # -----------------------------------------------------------------------------
+  # coder:
+  #   id: coder
+  #   description: "Coding specialist with deep understanding of software development"
+  #   provider: anthropic
+  #   model: claude-sonnet-4-6
+  #   # base_url: https://custom-api.example.com/v1  # 可选：自定义API端点
+  #   temperature: 0.3  # 低温适合精确编码
+  #   max_turns: 100
+  #   max_tool_failure_per_turn: 3
+  #   tools:
+  #     - fs_read
+  #     - fs_write
+  #     - shell
+  #     - search
+  #     - mcp_forge_extension_tool_document_symbols
+  #     - mcp_forge_extension_tool_workspace_symbols
+  #     - mcp_forge_extension_tool_rename_symbol
+  #     - mcp_forge_extension_tool_go_to_definition
+  #     - mcp_forge_extension_tool_find_references
+  #     - mcp_forge_extension_tool_get_diagnostics
+
+  # -----------------------------------------------------------------------------
+  # 示例Agent: Creative (创意写作)
+  # -----------------------------------------------------------------------------
+  # creative:
+  #   id: creative
+  #   description: "Creative writing assistant for brainstorming and content creation"
+  #   provider: anthropic
+  #   model: claude-3-5-sonnet-20241022
+  #   temperature: 0.9  # 高温度适合创意输出
+  #   max_turns: 30
+
+  # -----------------------------------------------------------------------------
+  # 示例Agent: Analyst (数据分析)
+  # -----------------------------------------------------------------------------
+  # analyst:
+  #   id: analyst
+  #   description: "Data analysis specialist for research and insights"
+  #   provider: openai
+  #   model: gpt-4-turbo
+  #   base_url: https://api.openai.com/v1  # 可选：自定义API端点
+  #   temperature: 0.1  # 低温度适合分析
+  #   max_tokens: 8192  # 长输出
+  #   max_turns: 50
+
+  # -----------------------------------------------------------------------------
+  # 示例Agent: 使用第三方API代理
+  # -----------------------------------------------------------------------------
+  # custom:
+  #   id: custom
+  #   description: "Custom agent using third-party API routing"
+  #   provider: anthropic-compatible
+  #   model: claude-sonnet-4-6
+  #   base_url: https://your-proxy.example.com/v1  # 第三方代理地址
+  #   api_key: sk-your-api-key  # API密钥
+  #   temperature: 0.5
+
+
+# =============================================================================
+# 附录：配置优先级说明
+# =============================================================================
+# 配置加载优先级 (从高到低):
+#   1. Agent定义中的配置 (agents.xxx)
+#   2. 项目配置文件 (.forge/setting.yaml)
+#   3. 全局配置文件 (~/.forge/.forge.toml)
+#   4. 代码默认值
+#
+# 例如: 如果在Agent定义中设置了temperature=0.3，
+#       但全局配置中设置了temperature=0.7，
+#       最终使用的是Agent定义中的0.3

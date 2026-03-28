@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
 
 use forge_json_repair::json_repair;
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,15 @@ use crate::Error;
 pub enum ToolCallArguments {
     Unparsed(String),
     Parsed(Value),
+}
+
+impl Hash for ToolCallArguments {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            ToolCallArguments::Unparsed(s) => s.hash(state),
+            ToolCallArguments::Parsed(v) => v.to_string().hash(state),
+        }
+    }
 }
 
 impl Serialize for ToolCallArguments {

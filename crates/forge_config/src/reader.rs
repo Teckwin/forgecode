@@ -111,6 +111,19 @@ impl ConfigReader {
         self
     }
 
+    /// Adds `.forge/setting.yaml` from the current working directory as a config source.
+    /// This takes highest priority and overrides global and environment settings.
+    pub fn read_local(mut self) -> Self {
+        let path = std::env::current_dir()
+            .map(|cwd| cwd.join(".forge").join("setting.yaml"))
+            .unwrap_or_else(|_| PathBuf::from(".forge/setting.yaml"));
+        
+        self.builder = self
+            .builder
+            .add_source(config::File::from(path).required(false));
+        self
+    }
+
     /// Reads `~/.forge/.config.json` (legacy format) and adds it as a source,
     /// silently skipping errors.
     pub fn read_legacy(self) -> Self {

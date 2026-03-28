@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use forge_app::domain::AgentId;
-use forge_app::{AgentRepository, EnvironmentInfra};
+use forge_app::{agent_config_service::AgentConfigMerger, AgentRepository, EnvironmentInfra};
 use forge_domain::{Agent, ProviderRepository};
 use tokio::sync::RwLock;
 
@@ -68,8 +68,13 @@ impl<R: AgentRepository + EnvironmentInfra + ProviderRepository> ForgeAgentRegis
         // Load agent definitions from repository
         let agent_defs = self.repository.get_agents().await?;
 
-        // Get default provider and model from app config
+        // Get environment for config merging
         let env = self.repository.get_environment();
+
+        // Create the config merger with the environment (clone env since we need it later)
+        let merger = AgentConfigMerger::new(env.clone());
+
+        // Get default provider and model from session config
         let session = env
             .session
             .as_ref()
@@ -94,10 +99,9 @@ impl<R: AgentRepository + EnvironmentInfra + ProviderRepository> ForgeAgentRegis
         // Create the agents map
         let agents_map = DashMap::new();
 
-        // Convert definitions to runtime agents and populate map
+        // Convert definitions to runtime agents using the config merger
         for def in agent_defs {
-            let agent =
-                Agent::from_agent_def(def, default_provider.id.clone(), default_model.clone());
+            let agent = merger.merge_with_defaults(def, default_provider.id.clone(), default_model.clone());
             agents_map.insert(agent.id.as_str().to_string(), agent);
         }
 

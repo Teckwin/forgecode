@@ -8,10 +8,11 @@ use serde::{Deserialize, Serialize};
 use crate::reader::ConfigReader;
 use crate::writer::ConfigWriter;
 use crate::{AutoDumpFormat, Compact, HttpConfig, ModelConfig, RetryConfig, Update};
+use forge_domain::AgentDefinition;
 
 /// Top-level Forge configuration merged from all sources (defaults, file,
 /// environment).
-#[derive(Default, Debug, Setters, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Debug, Setters, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 #[setters(strip_option)]
 pub struct ForgeConfig {
@@ -110,6 +111,15 @@ pub struct ForgeConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_requests_per_turn: Option<usize>,
 
+    /// Maximum number of times the agent can re-enter with the same input
+    /// within the reenter_window_secs time window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reenter_limit: Option<usize>,
+
+    /// Time window in seconds for re-enter detection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reenter_window_secs: Option<u64>,
+
     /// Context compaction settings applied to all agents; falls back to each
     /// agent's individual setting when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -122,6 +132,24 @@ pub struct ForgeConfig {
     /// Whether tool use is supported in the current environment.
     /// When false, tool calls are disabled regardless of agent configuration.
     pub tool_supported: bool,
+
+    // --- Agent definitions (map of agent_id -> AgentDefinition) ---
+    /// Agent definitions indexed by agent ID
+    /// This allows defining agents directly in setting.yaml without separate files
+    /// Example:
+    ///   agents:
+    ///     coder:
+    ///       provider: anthropic
+    ///       model: claude-sonnet-4-6
+    ///       temperature: 0.3
+    ///       max_turns: 100
+    ///     creative:
+    ///       provider: anthropic
+    ///       model: claude-3-5-sonnet-20241022
+    ///       temperature: 0.9
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agents: Option<std::collections::HashMap<String, forge_domain::AgentDefinition>>,
 }
 
 impl ForgeConfig {
@@ -138,6 +166,7 @@ impl ForgeConfig {
             .read_legacy()
             .read_global()
             .read_env()
+            .read_local()
             .build()
     }
 
@@ -193,9 +222,12 @@ impl Dummy<fake::Faker> for ForgeConfig {
             max_tokens: fake::Faker.fake_with_rng(rng),
             max_tool_failure_per_turn: fake::Faker.fake_with_rng(rng),
             max_requests_per_turn: fake::Faker.fake_with_rng(rng),
+            reenter_limit: fake::Faker.fake_with_rng(rng),
+            reenter_window_secs: fake::Faker.fake_with_rng(rng),
             compact: fake::Faker.fake_with_rng(rng),
             restricted: fake::Faker.fake_with_rng(rng),
             tool_supported: fake::Faker.fake_with_rng(rng),
+            agents: None,
         }
     }
 }

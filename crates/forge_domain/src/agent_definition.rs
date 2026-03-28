@@ -75,6 +75,18 @@ pub struct AgentDefinition {
     #[merge(strategy = crate::merge::option)]
     pub provider: Option<ProviderId>,
 
+    /// Override API key for this agent
+    /// If specified, this will be used instead of the provider's default API key
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub api_key: Option<String>,
+
+    /// Override base URL for this agent
+    /// If specified, this will be used instead of the provider's default endpoint
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub base_url: Option<String>,
+
     // The language model ID to be used by this agent
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[merge(strategy = crate::merge::option)]
@@ -104,6 +116,20 @@ pub struct AgentDefinition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[merge(strategy = crate::merge::option)]
     pub max_turns: Option<u64>,
+
+    /// Maximum number of times the agent can re-enter with the same input
+    /// within the reenter_window_secs time window
+    /// This is used to detect and prevent infinite loops caused by
+    /// the same request being processed repeatedly
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub reenter_limit: Option<usize>,
+
+    /// Time window in seconds for re-enter detection
+    /// Only counts re-entries that occur within this time window
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub reenter_window_secs: Option<u64>,
 
     /// Configuration for automatic context compaction
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -261,6 +287,10 @@ impl AgentDefinition {
             user_prompt: Default::default(),
             tools: Default::default(),
             max_turns: Default::default(),
+            reenter_limit: Default::default(),
+            reenter_window_secs: Default::default(),
+            api_key: Default::default(),
+            base_url: Default::default(),
             compact: Default::default(),
             custom_rules: Default::default(),
             temperature: Default::default(),

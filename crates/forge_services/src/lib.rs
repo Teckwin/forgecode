@@ -1,3 +1,4 @@
+mod agent_config;
 mod agent_registry;
 mod app_config;
 mod attachment;
@@ -24,6 +25,7 @@ mod tool_services;
 mod utils;
 
 pub use app_config::*;
+pub use agent_config::*;
 pub use clipper::*;
 pub use command::*;
 pub use context_engine::*;

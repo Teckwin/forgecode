@@ -11,6 +11,7 @@ use forge_domain::{
 };
 
 use crate::ForgeProviderAuthService;
+use crate::agent_config::ForgeAgentConfigService;
 use crate::agent_registry::ForgeAgentRegistryService;
 use crate::app_config::ForgeAppConfigService;
 use crate::attachment::ForgeChatRequest;
@@ -78,6 +79,7 @@ pub struct ForgeServices<
     custom_instructions_service: Arc<ForgeCustomInstructionsService<F>>,
     auth_service: Arc<AuthService<F>>,
     agent_registry_service: Arc<ForgeAgentRegistryService<F>>,
+    agent_config_service: Arc<ForgeAgentConfigService<F>>,
     command_loader_service: Arc<ForgeCommandLoaderService<F>>,
     policy_service: ForgePolicyService<F>,
     provider_auth_service: ForgeProviderAuthService<F>,
@@ -133,6 +135,7 @@ impl<
         let custom_instructions_service =
             Arc::new(ForgeCustomInstructionsService::new(infra.clone()));
         let agent_registry_service = Arc::new(ForgeAgentRegistryService::new(infra.clone()));
+        let agent_config_service = Arc::new(ForgeAgentConfigService::new(infra.clone()));
         let command_loader_service = Arc::new(ForgeCommandLoaderService::new(infra.clone()));
         let policy_service = ForgePolicyService::new(infra.clone());
         let provider_auth_service = ForgeProviderAuthService::new(infra.clone());
@@ -165,6 +168,7 @@ impl<
             auth_service,
             config_service,
             agent_registry_service,
+            agent_config_service,
             command_loader_service,
             policy_service,
             provider_auth_service,
@@ -232,6 +236,7 @@ impl<
     type McpService = McpService<F>;
     type AuthService = AuthService<F>;
     type AgentRegistry = ForgeAgentRegistryService<F>;
+    type AgentConfigService = ForgeAgentConfigService<F>;
     type CommandLoaderService = ForgeCommandLoaderService<F>;
     type PolicyService = ForgePolicyService<F>;
     type ProviderService = ForgeProviderService<F>;
@@ -316,6 +321,10 @@ impl<
 
     fn agent_registry(&self) -> &Self::AgentRegistry {
         &self.agent_registry_service
+    }
+
+    fn agent_config_service(&self) -> &Self::AgentConfigService {
+        &self.agent_config_service
     }
 
     fn command_loader_service(&self) -> &Self::CommandLoaderService {

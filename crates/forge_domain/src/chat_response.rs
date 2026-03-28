@@ -102,6 +102,13 @@ pub enum InterruptionReason {
     MaxRequestPerTurnLimitReached {
         limit: u64,
     },
+    MaxTurnsLimitReached {
+        limit: u64,
+    },
+    ReenterLimitReached {
+        limit: usize,
+        window_secs: u64,
+    },
 }
 
 #[derive(Clone)]

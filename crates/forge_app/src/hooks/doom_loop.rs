@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
+use chrono::{DateTime, Duration, Utc};
 use derive_setters::Setters;
 use forge_domain::{
     ContextMessage, Conversation, EventData, EventHandle, RequestPayload, Role, TextMessage,
@@ -12,11 +15,12 @@ use crate::TemplateEngine;
 /// Detector for identifying doom loops - when tool calls form repetitive
 /// patterns
 ///
-/// This detector analyzes conversation history to identify two types of loops:
-/// 1. Consecutive identical calls: [A,A,A,A] - same tool with same arguments
-/// 2. Repeating patterns: [A,B,C][A,B,C][A,B,C] - sequence of calls repeating
+/// This detector analyzes conversation history to identify three types of loops:
+/// 1. Rapid identical calls: Same tool with same arguments within a short time window (e.g., 3 seconds)
+/// 2. Consecutive identical calls: [A,A,A,A] - same tool with same arguments over longer period
+/// 3. Repeating patterns: [A,B,C][A,B,C][A,B,C] - sequence of calls repeating
 ///
-/// Both patterns indicate the agent is stuck in a loop, wasting tokens without
+/// All patterns indicate the agent is stuck in a loop, wasting tokens without
 /// making progress.
 ///
 /// Can be used as a hook on `on_request` events to detect doom loops after
@@ -26,6 +30,12 @@ pub struct DoomLoopDetector {
     /// Threshold for consecutive identical tool calls before triggering
     /// detection
     threshold: usize,
+    /// Time window in seconds for rapid repeat detection
+    /// If the same tool with same arguments is called more than once within
+    /// this time window, it's considered a rapid loop
+    rapid_time_window_secs: i64,
+    /// Minimum number of rapid repeats within the time window to trigger detection
+    rapid_repeat_threshold: usize,
 }
 
 impl Default for DoomLoopDetector {
@@ -36,10 +46,124 @@ impl Default for DoomLoopDetector {
 
 impl DoomLoopDetector {
     const DEFAULT_THRESHOLD: usize = 3;
+    const DEFAULT_RAPID_TIME_WINDOW_SECS: i64 = 3;
+    const DEFAULT_RAPID_REPEAT_THRESHOLD: usize = 2;
 
     /// Creates a new doom loop detector with the default threshold
     pub fn new() -> Self {
-        Self { threshold: Self::DEFAULT_THRESHOLD }
+        Self {
+            threshold: Self::DEFAULT_THRESHOLD,
+            rapid_time_window_secs: Self::DEFAULT_RAPID_TIME_WINDOW_SECS,
+            rapid_repeat_threshold: Self::DEFAULT_RAPID_REPEAT_THRESHOLD,
+        }
+    }
+
+    /// Creates a doom loop detector with custom configuration
+    ///
+    /// # Arguments
+    /// * `threshold` - Number of consecutive identical calls to trigger pattern detection
+    /// * `rapid_time_window_secs` - Time window in seconds for rapid repeat detection
+    /// * `rapid_repeat_threshold` - Minimum rapid repeats within time window to trigger detection
+    pub fn with_config(threshold: usize, rapid_time_window_secs: i64, rapid_repeat_threshold: usize) -> Self {
+        Self {
+            threshold,
+            rapid_time_window_secs,
+            rapid_repeat_threshold,
+        }
+    }
+
+    /// Detects rapid repeats - same tool with same arguments within a short time window
+    /// This is designed to catch immediate loops where the agent keeps calling the same
+    /// tool with identical arguments in rapid succession (e.g., within 3 seconds)
+    ///
+    /// Returns Some(count) if rapid repeats are detected, None otherwise
+    pub fn detect_rapid_repeats(&self, conversation: &Conversation) -> Option<usize> {
+        let now = Utc::now();
+        let time_window = Duration::seconds(self.rapid_time_window_secs);
+
+        // Extract tool call signatures from conversation
+        let signatures = self.extract_tool_signatures_with_timestamps(conversation);
+
+        if signatures.is_empty() {
+            return None;
+        }
+
+        // Group signatures by (tool_name, arguments) to find repeats
+        let mut signature_counts: HashMap<(ToolName, ToolCallArguments), Vec<DateTime<Utc>>> = HashMap::new();
+
+        for (name, args, timestamp) in signatures {
+            signature_counts.entry((name, args)).or_default().push(timestamp);
+        }
+
+        // Check each group for rapid repeats
+        for (_signature, timestamps) in signature_counts.iter() {
+            if timestamps.len() < self.rapid_repeat_threshold + 1 {
+                continue;
+            }
+
+            // Sort timestamps in descending order (most recent first)
+            let mut sorted_ts = timestamps.clone();
+            sorted_ts.sort_by(|a, b| b.cmp(a));
+
+            // Count how many calls are within the time window from the most recent
+            let mut rapid_count = 1;
+            if let Some(most_recent) = sorted_ts.first() {
+                for ts in sorted_ts.iter().skip(1) {
+                    if most_recent.signed_duration_since(*ts) <= time_window {
+                        rapid_count += 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+
+            if rapid_count > self.rapid_repeat_threshold {
+                return Some(rapid_count);
+            }
+        }
+
+        None
+    }
+
+    /// Extracts tool call signatures along with their approximate timestamps
+    /// Uses conversation metadata updated_at as a proxy for timing
+    fn extract_tool_signatures_with_timestamps(
+        &self,
+        conversation: &Conversation,
+    ) -> Vec<(ToolName, ToolCallArguments, DateTime<Utc>)> {
+        let base_time = conversation
+            .metadata
+            .updated_at
+            .or(Some(conversation.metadata.created_at))
+            .unwrap_or_else(Utc::now);
+
+        let assistant_messages = conversation
+            .context
+            .as_ref()
+            .map(|ctx| {
+                Self::extract_assistant_messages(ctx.messages.iter().map(|entry| &entry.message))
+            })
+            .unwrap_or_default();
+
+        // Each message gets a slightly different timestamp based on position
+        // This is an approximation since we don't have per-message timestamps
+        assistant_messages
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, msg)| msg.tool_calls.as_ref().map(|calls| (idx, calls)))
+            .flat_map(|(idx, calls)| {
+                let time_offset = Duration::seconds(-(idx as i64));
+                calls.iter()
+                    .map(|call| {
+                        (
+                            call.name.clone(),
+                            call.arguments.clone(),
+                            base_time + time_offset,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect()
     }
 
     /// Checks conversation history for doom loops using already-recorded tool

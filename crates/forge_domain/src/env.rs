@@ -186,6 +186,15 @@ pub struct Environment {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_requests_per_turn: Option<usize>,
 
+    /// Maximum number of times the agent can re-enter with the same input
+    /// within the reenter_window_secs time window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reenter_limit: Option<usize>,
+
+    /// Time window in seconds for re-enter detection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reenter_window_secs: Option<u64>,
+
     /// Context compaction settings applied to all agents.
     #[dummy(default)]
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -1954,6 +1954,7 @@ dependencies = [
  "dirs",
  "dotenvy",
  "fake",
+ "forge_domain",
  "is_ci",
  "merge",
  "pretty_assertions",
