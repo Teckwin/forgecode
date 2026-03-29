@@ -48,8 +48,16 @@ where
         // otherwise fall back to default provider/model
         let (provider, model) = match self.services.get_suggest_config().await? {
             Some(config) => {
-                let provider = self.services.get_provider(config.provider).await?;
-                (provider, config.model)
+                let provider_id = match config.provider {
+                    Some(p) => p,
+                    None => self.services.get_default_provider().await?,
+                };
+                let provider = self.services.get_provider(provider_id).await?;
+                let model = match config.model {
+                    Some(m) => m,
+                    None => self.services.get_provider_model(Some(&provider.id)).await?,
+                };
+                (provider, model)
             }
             None => {
                 let provider_id = self.services.get_default_provider().await?;
@@ -266,6 +274,14 @@ mod tests {
         }
 
         async fn set_suggest_config(&self, _config: forge_domain::SuggestConfig) -> Result<()> {
+            Ok(())
+        }
+
+        async fn get_agent_config(&self, _agent_id: &forge_domain::AgentId) -> Result<Option<forge_domain::AgentConfig>> {
+            Ok(None)
+        }
+
+        async fn set_agent_config(&self, _agent_id: &forge_domain::AgentId, _config: forge_domain::AgentConfig) -> Result<()> {
             Ok(())
         }
     }

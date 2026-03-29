@@ -661,6 +661,32 @@ model: "claude-3.7-sonnet"
 </details>
 
 <details>
+<summary><strong>Provider URL</strong>
+
+Override the default provider URL for self-hosted models, proxies, or vendor-specific endpoints.
+
+```yaml
+# forge.yaml
+url: "https://your-custom-provider.com/v1"
+```
+
+**Examples:**
+- Self-hosted OpenAI-compatible API: `https://your-server.com/v1`
+- Proxy endpoint: `https://proxy.example.com/api`
+- Vendor-specific endpoint: `https://api.anthropic.com`
+
+You can also set this per-agent:
+
+```yaml
+# forge.yaml
+agents:
+  forge:
+    url: "https://custom-endpoint.com/v1"
+```
+
+</details>
+
+<details>
 <summary><strong>Max Walker Depth</strong></summary>
 
 Control how deeply Forge traverses your project directory structure when gathering context.

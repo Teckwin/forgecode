@@ -71,6 +71,14 @@ pub struct Agent {
 
     /// Maximum number of requests that can be made in a single turn
     pub max_requests_per_turn: Option<usize>,
+
+    /// Custom API URL for this agent (overrides provider's default URL).
+    /// Used for self-hosted models or proxy endpoints.
+    pub custom_url: Option<String>,
+
+    /// Custom API key for this agent (overrides provider's default auth).
+    /// Use with caution - prefer using provider authentication instead.
+    pub custom_api_key: Option<String>,
 }
 
 impl Agent {
@@ -97,6 +105,8 @@ impl Agent {
             max_tool_failure_per_turn: Default::default(),
             max_requests_per_turn: Default::default(),
             path: Default::default(),
+            custom_url: Default::default(),
+            custom_api_key: Default::default(),
         }
     }
 
@@ -210,6 +220,8 @@ impl Agent {
             max_tool_failure_per_turn: def.max_tool_failure_per_turn,
             max_requests_per_turn: def.max_requests_per_turn,
             path: def.path,
+            custom_url: Default::default(),
+            custom_api_key: Default::default(),
         }
     }
 

@@ -5,7 +5,7 @@ use forge_domain::{
     ToolCallContext, ToolCallFull, ToolResult,
 };
 
-use crate::services::AppConfigService;
+use crate::services::{AgentRegistry, AppConfigService};
 use crate::tool_registry::ToolRegistry;
 use crate::{ConversationService, ProviderService, Services};
 
@@ -42,8 +42,22 @@ impl<T: Services> AgentService for T {
         context: Context,
         provider_id: Option<ProviderId>,
     ) -> ResultStream<ChatCompletionMessage, anyhow::Error> {
+        // Use the provided provider_id, or get from agent config by matching model_id, or fallback to default
         let provider_id = if let Some(provider_id) = provider_id {
             provider_id
+        } else if let Ok(agents) = self.get_agents().await {
+            // Find the agent that uses this model and use its provider
+            if let Some(agent) = agents.into_iter().find(|a| &a.model == id) {
+                tracing::debug!(
+                    agent_id = %agent.id,
+                    model_id = %id,
+                    provider_id = %agent.provider,
+                    "Resolved provider from agent config"
+                );
+                agent.provider
+            } else {
+                self.get_default_provider().await?
+            }
         } else {
             self.get_default_provider().await?
         };

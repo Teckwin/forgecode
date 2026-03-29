@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use forge_app::AppConfigService;
-use forge_domain::{AppConfig, AppConfigRepository, ModelId, ProviderId, ProviderRepository};
+use forge_domain::{
+    AgentConfig, AgentId, AppConfig, AppConfigRepository, ModelId, ProviderId, ProviderRepository,
+};
 
 /// Service for managing user preferences for default providers and models.
 pub struct ForgeAppConfigService<F> {
@@ -62,21 +64,13 @@ impl<F: ProviderRepository + AppConfigRepository + Send + Sync> AppConfigService
 
         Ok(config
             .model
-            .get(provider_id)
-            .cloned()
+            .clone()
             .ok_or_else(|| forge_domain::Error::no_default_model(provider_id.clone()))?)
     }
 
     async fn set_default_model(&self, model: ModelId) -> anyhow::Result<()> {
-        let provider_id = self
-            .infra
-            .get_app_config()
-            .await?
-            .provider
-            .ok_or(forge_domain::Error::NoDefaultProvider)?;
-
         self.update(|config| {
-            config.model.insert(provider_id, model.clone());
+            config.model = Some(model);
         })
         .await
     }
@@ -107,6 +101,22 @@ impl<F: ProviderRepository + AppConfigRepository + Send + Sync> AppConfigService
     ) -> anyhow::Result<()> {
         self.update(|config| {
             config.suggest = Some(suggest_config);
+        })
+        .await
+    }
+
+    async fn get_agent_config(&self, agent_id: &AgentId) -> anyhow::Result<Option<AgentConfig>> {
+        let config = self.infra.get_app_config().await?;
+        Ok(config.agents.get(agent_id.as_str()).cloned())
+    }
+
+    async fn set_agent_config(
+        &self,
+        agent_id: &AgentId,
+        agent_config: AgentConfig,
+    ) -> anyhow::Result<()> {
+        self.update(|config| {
+            config.agents.insert(agent_id.to_string(), agent_config);
         })
         .await
     }

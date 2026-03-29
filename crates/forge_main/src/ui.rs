@@ -1323,11 +1323,11 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
         let suggest_config = self.api.get_suggest_config().await.ok().flatten();
         let suggest_provider = suggest_config
             .as_ref()
-            .map(|c| c.provider.to_string())
+            .map(|c| c.provider.as_ref().map(|p| p.to_string()).unwrap_or_default())
             .unwrap_or_else(|| markers::EMPTY.to_string());
         let suggest_model = suggest_config
             .as_ref()
-            .map(|c| c.model.as_str().to_string())
+            .map(|c| c.model.as_ref().map(|m| m.as_str().to_string()).unwrap_or_default())
             .unwrap_or_else(|| markers::EMPTY.to_string());
 
         let info = Info::new()
@@ -3417,8 +3417,8 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
                 // Validate provider exists and model belongs to that specific provider
                 let validated_model = self.validate_model(model.as_str(), Some(&provider)).await?;
                 let suggest_config = forge_domain::SuggestConfig {
-                    provider: provider.clone(),
-                    model: validated_model.clone(),
+                    provider: Some(provider.clone()),
+                    model: Some(validated_model.clone()),
                 };
                 self.api.set_suggest_config(suggest_config).await?;
                 self.writeln_title(TitleFormat::action(validated_model.as_str()).sub_title(
@@ -3480,8 +3480,14 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
                 let suggest_config = self.api.get_suggest_config().await?;
                 match suggest_config {
                     Some(config) => {
-                        self.writeln(config.provider.as_ref())?;
-                        self.writeln(config.model.as_str().to_string())?;
+                        let provider = config.provider.as_ref()
+                            .map(|p| p.to_string())
+                            .unwrap_or_else(|| "Not set".to_string());
+                        let model = config.model.as_ref()
+                            .map(|m| m.as_str().to_string())
+                            .unwrap_or_else(|| "Not set".to_string());
+                        self.writeln(provider)?;
+                        self.writeln(model)?;
                     }
                     None => self.writeln("Suggest: Not set")?,
                 }

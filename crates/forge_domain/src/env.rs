@@ -177,6 +177,11 @@ impl Environment {
         self.base_path.join(".config.json")
     }
 
+    /// Returns the project-local config file path (.forge.yaml)
+    pub fn local_config(&self) -> PathBuf {
+        self.cwd.join(".forge.yaml")
+    }
+
     pub fn database_path(&self) -> PathBuf {
         self.base_path.join(".forge.db")
     }

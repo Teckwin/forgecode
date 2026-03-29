@@ -4,11 +4,12 @@ use std::time::Duration;
 use bytes::Bytes;
 use derive_setters::Setters;
 use forge_domain::{
-    AgentId, AnyProvider, Attachment, AuthContextRequest, AuthContextResponse, AuthMethod,
-    ChatCompletionMessage, CommandOutput, Context, Conversation, ConversationId, Environment, File,
-    FileInfo, FileStatus, Image, InitAuth, LoginInfo, McpConfig, McpServers, Model, ModelId, Node,
-    Provider, ProviderId, ResultStream, Scope, SearchParams, SyncProgress, SyntaxError, Template,
-    ToolCallFull, ToolOutput, Workflow, WorkspaceAuth, WorkspaceId, WorkspaceInfo,
+    AgentId, AnyProvider, Attachment, AuthContextRequest,
+    AuthContextResponse, AuthMethod, ChatCompletionMessage, CommandOutput, Context, Conversation,
+    ConversationId, Environment, File, FileInfo, FileStatus, Image, InitAuth, LoginInfo, McpConfig,
+    McpServers, Model, ModelId, Node, Provider, ProviderId, ResultStream, Scope, SearchParams,
+    SyncProgress, SyntaxError, Template, ToolCallFull, ToolOutput, Workflow, WorkspaceAuth,
+    WorkspaceId, WorkspaceInfo,
 };
 use merge::Merge;
 use reqwest::Response;
@@ -227,6 +228,20 @@ pub trait AppConfigService: Send + Sync {
     /// Sets the suggest configuration (provider and model for command
     /// suggestion generation).
     async fn set_suggest_config(&self, config: forge_domain::SuggestConfig) -> anyhow::Result<()>;
+
+    /// Gets the agent-specific configuration for a given agent id.
+    /// Returns the configured provider, model, URL, and API key for the agent.
+    async fn get_agent_config(
+        &self,
+        agent_id: &AgentId,
+    ) -> anyhow::Result<Option<forge_domain::AgentConfig>>;
+
+    /// Sets the agent-specific configuration for a given agent id.
+    async fn set_agent_config(
+        &self,
+        agent_id: &AgentId,
+        config: forge_domain::AgentConfig,
+    ) -> anyhow::Result<()>;
 }
 
 #[async_trait::async_trait]
@@ -1059,6 +1074,23 @@ impl<I: Services> AppConfigService for I {
 
     async fn set_suggest_config(&self, config: forge_domain::SuggestConfig) -> anyhow::Result<()> {
         self.config_service().set_suggest_config(config).await
+    }
+
+    async fn get_agent_config(
+        &self,
+        agent_id: &AgentId,
+    ) -> anyhow::Result<Option<forge_domain::AgentConfig>> {
+        self.config_service().get_agent_config(agent_id).await
+    }
+
+    async fn set_agent_config(
+        &self,
+        agent_id: &AgentId,
+        config: forge_domain::AgentConfig,
+    ) -> anyhow::Result<()> {
+        self.config_service()
+            .set_agent_config(agent_id, config)
+            .await
     }
 }
 

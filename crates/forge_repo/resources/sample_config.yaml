@@ -1,0 +1,151 @@
+# =============================================================================
+# Forge Configuration File
+# =============================================================================
+# This is the project-level configuration for Forge.
+# It allows you to customize AI provider, model, and agent-specific settings.
+#
+# Configuration Priority (highest to lowest):
+#   1. Agent-specific config (agents.<agent>.xxx)
+#   2. Project config (.forge.yaml)
+#   3. Global config (~/.forge/.config.json)
+#   4. Environment variables
+#   5. Default values
+#
+# =============================================================================
+# Provider Configuration
+# =============================================================================
+# Available providers: openai, anthropic, anthropic_compatible, openai_compatible,
+#                      open_router, deepseek, cerebras, zai, azure, vertex_ai, etc.
+#
+# Example providers:
+#   - openai:        OpenAI's official API (api.openai.com)
+#   - anthropic:     Anthropic's official API (api.anthropic.com)
+#   - azure:         Microsoft Azure OpenAI
+#   - vertex_ai:     Google Vertex AI
+#   - open_router:   OpenRouter AI aggregator
+#   - deepseek:      DeepSeek AI
+#
+# How to set:
+#   provider: anthropic  # Use Anthropic as default provider
+
+# =============================================================================
+# Model Configuration
+# =============================================================================
+# Model format: "provider/model-id" (e.g., "anthropic/claude-sonnet-4-20250514")
+#
+# Common models:
+#   Anthropic:   claude-sonnet-4-20250514, claude-opus-4-6, claude-3-5-sonnet
+#   OpenAI:      gpt-4.1, gpt-4o, o3-mini-high, o1
+#   DeepSeek:    deepseek-chat, deepseek-coder
+#
+# How to set:
+#   model: anthropic/claude-sonnet-4-20250514
+
+# =============================================================================
+# Provider URL (for self-hosted or proxy endpoints)
+# =============================================================================
+# Override the default provider URL for:
+#   - Self-hosted models
+#   - Proxy endpoints
+#   - Vendor-specific endpoints (e.g., Azure, custom Anthropic endpoints)
+#
+# Examples:
+#   url: "https://your-server.com/v1"       # Self-hosted OpenAI-compatible
+#   url: "https://api.anthropic.com"        # Official Anthropic
+#   url: "https://azure.openai.com"         # Azure OpenAI
+#
+# How to set:
+#   url: "https://your-custom-provider.com/v1"
+
+# =============================================================================
+# Generation Parameters
+# =============================================================================
+# These settings control AI response behavior. They can be set globally or
+# per-agent.
+#
+# temperature: 0.0-2.0 (default: 0.7)
+#   Lower = more focused/deterministic, Higher = more creative/diverse
+#
+# max_tokens: 1-100000 (default: 8192)
+#   Maximum tokens in AI response
+#
+# top_p: 0.0-1.0 (default: 0.9)
+#   Nucleus sampling - controls diversity
+#
+# top_k: 1-1000 (default: 40)
+#   Only for Anthropic models - controls token selection
+
+# How to set globally:
+temperature: 0.7
+max_tokens: 8192
+top_p: 0.9
+
+# =============================================================================
+# Agent-Specific Configuration
+# =============================================================================
+# Configure different providers/models for different agents.
+# Available agents: default, commit, suggest
+#
+# Each agent can have:
+#   - provider: Override default provider
+#   - model: Override default model
+#   - url: Override provider URL (for self-hosted or proxy)
+#   - api_key: Override provider API key
+#   - temperature, max_tokens, top_p, top_k: Override generation params
+#   - tools_disabled: Explicitly disable tools (true = no tools, false/undefined = use default)
+#   - reasoning: Enable reasoning mode for o1/o3 models
+#
+# Example:
+# agents:
+#   default:
+#     provider: anthropic
+#     model: claude-sonnet-4-20250514
+#     temperature: 0.7
+#     tools_disabled: false
+#   commit:
+#     provider: openai
+#     model: gpt-4.1
+#     temperature: 0.3
+#     max_tokens: 1024
+#     tools_disabled: true
+
+# =============================================================================
+# Context Compaction (Memory Management)
+# =============================================================================
+# Configure how Forge manages conversation history when it gets too long.
+#
+# compact:
+#   max_tokens: 2000           # Summary will be condensed to this many tokens
+#   token_threshold: 100000    # Trigger compaction when context exceeds this
+#   retention_window: 6        # Keep last N messages without summarization
+#   message_threshold: 200     # Trigger after N messages
+#   eviction_window: 0.2       # Compact oldest X% of messages
+#   on_turn_end: false         # Compact after each turn
+
+# =============================================================================
+# Example Configuration
+# =============================================================================
+# Here's a complete example with the most common settings:
+
+# Default provider and model
+provider: anthropic
+model: claude-sonnet-4-20250514
+
+# Global generation parameters
+temperature: 0.7
+max_tokens: 8192
+top_p: 0.9
+
+# Use a custom provider URL (optional)
+# url: "https://your-proxy.com/v1"
+
+# Agent-specific overrides (optional)
+# agents:
+#   default:
+#     temperature: 0.7
+#     tools_disabled: false
+#   commit:
+#     model: openai/gpt-4.1
+#     temperature: 0.3
+#     max_tokens: 1024
+#     tools_disabled: true
