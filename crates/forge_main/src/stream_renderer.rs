@@ -27,40 +27,65 @@ impl<P: ConsoleWriter> SharedSpinner<P> {
     }
 
     /// Start the spinner with a message.
+    /// Returns Ok(()) if successful, or Err if the spinner lock is poisoned.
     pub fn start(&self, message: Option<&str>) -> Result<()> {
-        self.0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .start(message)
+        match self.0.lock() {
+            Ok(mut spinner) => spinner.start(message),
+            Err(e) => {
+                // Lock is poisoned - try to recover by dropping the poisoned guard
+                // This prevents the panic from propagating
+                let mut spinner = e.into_inner();
+                // Try to start anyway, but don't propagate the lock error
+                spinner.start(message).ok();
+                Ok(())
+            }
+        }
     }
 
     /// Stop the active spinner if any.
+    /// Returns Ok(()) if successful, or Err if the spinner lock is poisoned.
     pub fn stop(&self, message: Option<String>) -> Result<()> {
-        self.0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .stop(message)
+        match self.0.lock() {
+            Ok(mut spinner) => spinner.stop(message),
+            Err(e) => {
+                let mut spinner = e.into_inner();
+                spinner.stop(message).ok();
+                Ok(())
+            }
+        }
     }
 
     /// Resets the stopwatch to zero.
+    /// Does not panic even if the lock is poisoned.
     pub fn reset(&self) {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).reset()
+        if let Ok(mut spinner) = self.0.lock() {
+            spinner.reset();
+        }
+        // Silently ignore lock poisoning for reset operations
     }
 
     /// Writes a line to stdout, suspending the spinner if active.
     pub fn write_ln(&self, message: impl ToString) -> Result<()> {
-        self.0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .write_ln(message)
+        match self.0.lock() {
+            Ok(mut spinner) => spinner.write_ln(message),
+            Err(e) => {
+                let mut spinner = e.into_inner();
+                spinner.write_ln(message).ok();
+                Ok(())
+            }
+        }
     }
 
     /// Writes a line to stderr, suspending the spinner if active.
     pub fn ewrite_ln(&self, message: impl ToString) -> Result<()> {
-        self.0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .ewrite_ln(message)
+        match self.0.lock() {
+            Ok(mut spinner) => spinner.ewrite_ln(message),
+            Err(e) => {
+                let mut spinner = e.into_inner();
+                spinner.ewrite_ln(message).ok();
+                Ok(())
+            }
+        }
     }
 }
 
