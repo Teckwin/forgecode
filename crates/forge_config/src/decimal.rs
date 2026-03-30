@@ -6,6 +6,8 @@
 /// require `f32`, callers should cast via `value() as f32`.
 pub struct Decimal(pub f64);
 
+use std::ops::{Deref, DerefMut};
+
 impl Decimal {
     /// Returns the inner `f64` value.
     pub fn value(&self) -> f64 {
@@ -21,7 +23,7 @@ impl std::fmt::Debug for Decimal {
 
 impl Clone for Decimal {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
@@ -42,6 +44,20 @@ impl PartialOrd for Decimal {
 impl Default for Decimal {
     fn default() -> Self {
         Self(0.0)
+    }
+}
+
+impl Deref for Decimal {
+    type Target = f64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Decimal {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
