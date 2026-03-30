@@ -278,7 +278,19 @@ impl<
     }
 
     async fn get_agent_model(&self, agent_id: AgentId) -> Option<ModelId> {
+        // Get agent's model, returning None if agent has custom credentials to avoid
+        // triggering provider validation that would fail
         let agent_provider_resolver = AgentProviderResolver::new(self.services.clone());
+        
+        // First check if agent has custom credentials - if so, we skip validation
+        if let Ok(Some(agent)) = self.services.get_agent(&agent_id).await {
+            if agent.custom_api_key.is_some() || agent.custom_url.is_some() {
+                // Agent has custom credentials - just return the model's ID
+                // Don't call get_model which would trigger provider validation
+                return Some(agent.model);
+            }
+        }
+        
         agent_provider_resolver.get_model(Some(agent_id)).await.ok()
     }
 

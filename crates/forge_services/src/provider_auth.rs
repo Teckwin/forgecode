@@ -137,10 +137,21 @@ where
     /// iterates through provider's auth methods, and attempts to refresh.
     /// Returns the provider with updated credentials, or original if refresh
     /// fails or isn't needed.
+    ///
+    /// IMPORTANT: If the provider already has a credential set (e.g., from
+    /// custom_api_key in .forge.yaml), skip the refresh logic entirely to
+    /// avoid triggering credential store lookups that would fail.
     async fn refresh_provider_credential(
         &self,
         mut provider: Provider<url::Url>,
     ) -> anyhow::Result<Provider<url::Url>> {
+        // If provider already has credentials (e.g., from custom_api_key in config),
+        // skip the refresh logic entirely - this avoids triggering credential store
+        // lookups that would fail for providers without stored credentials
+        if provider.credential.is_some() {
+            return Ok(provider);
+        }
+
         // Check if credential needs refresh (5 minute buffer before expiry)
         if let Some(credential) = &provider.credential {
             let buffer = chrono::Duration::minutes(5);

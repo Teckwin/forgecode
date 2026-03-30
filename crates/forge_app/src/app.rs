@@ -94,11 +94,17 @@ impl<S: Services> ForgeApp<S> {
         let agent_provider = agent_provider_resolver
             .get_provider(Some(agent.id.clone()))
             .await?;
-        let agent_provider = self
-            .services
-            .provider_auth_service()
-            .refresh_provider_credential(agent_provider)
-            .await?;
+
+        // Only refresh credentials if provider doesn't already have them
+        // (custom_api_key in .forge.yaml should already be set on the provider)
+        let agent_provider = if agent_provider.credential.is_none() {
+            self.services
+                .provider_auth_service()
+                .refresh_provider_credential(agent_provider)
+                .await?
+        } else {
+            agent_provider
+        };
 
         let models = services.models(agent_provider).await?;
 

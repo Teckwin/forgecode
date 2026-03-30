@@ -149,7 +149,18 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
     /// active agent's model
     async fn get_agent_model(&self, agent_id: Option<AgentId>) -> Option<ModelId> {
         match agent_id {
-            Some(agent_id) => self.api.get_agent_model(agent_id).await,
+            Some(agent_id) => {
+                // Check if agent has custom credentials - if so, return model directly
+                // to avoid triggering provider validation
+                if let Ok(agents) = self.api.get_agents().await {
+                    if let Some(agent) = agents.iter().find(|a| a.id == agent_id) {
+                        if agent.custom_api_key.is_some() || agent.custom_url.is_some() {
+                            return Some(agent.model.clone());
+                        }
+                    }
+                }
+                self.api.get_agent_model(agent_id).await
+            }
             None => self.api.get_default_model().await,
         }
     }
@@ -2026,7 +2037,22 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
     #[async_recursion::async_recursion]
     async fn select_model(&mut self) -> Result<Option<ModelId>> {
         // Check if provider is set otherwise first ask to select a provider
-        if self.api.get_default_provider().await.is_err() {
+        // Skip this check if the active agent has custom credentials configured
+        // (custom_api_key in .forge.yaml will handle authentication)
+        let active_agent = self.api.get_active_agent().await;
+        let agent_has_custom_credentials = if let Some(ref agent_id) = active_agent {
+            if let Ok(agents) = self.api.get_agents().await {
+                agents.iter().any(|a| {
+                    a.id.as_str() == agent_id.as_str() && (a.custom_api_key.is_some() || a.custom_url.is_some())
+                })
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if !agent_has_custom_credentials && self.api.get_default_provider().await.is_err() {
             self.on_provider_selection().await?;
 
             // Check if a model was already selected during provider activation
@@ -2853,21 +2879,73 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
         let _ = self.handle_migrate_credentials().await;
 
         // Ensure we have a model selected before proceeding with initialization
+        // Use agent-specific model if available
         let active_agent = self.api.get_active_agent().await;
+
+        // Get agent-specific provider and model, skipping validation if agent has custom credentials
+        let agent_has_custom_credentials = if let Some(ref agent_id) = active_agent {
+            if let Ok(agents) = self.api.get_agents().await {
+                agents.iter().any(|a| {
+                    a.id.as_str() == agent_id.as_str() && (a.custom_api_key.is_some() || a.custom_url.is_some())
+                })
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // Only validate default provider if no agent has custom credentials
+        let provider_result = if !agent_has_custom_credentials {
+            self.api.get_default_provider().await
+        } else {
+            // Skip validation - agent has custom credentials
+            Err(anyhow::anyhow!("Agent has custom credentials"))
+        };
+
+        if provider_result.is_err() {
+            self.on_provider_selection().await?;
+        }
 
         let mut operating_model = self.get_agent_model(active_agent.clone()).await;
         if operating_model.is_none() {
             // Use the model returned from selection instead of re-fetching
             operating_model = self.on_model_selection().await?;
         }
-
-        // Validate provider is configured before loading agents
-        // If provider is set in config but not configured (no credentials), prompt user
         // to login
-        if self.api.get_default_provider().await.is_err() {
+        //
+        // Skip this check if the active agent has custom credentials configured
+        // (custom_api_key in .forge.yaml will handle authentication)
+
+        // Get the active agent from CLI
+        let active_agent = self.cli.agent.clone();
+
+        // Check if the active agent has custom credentials - if so, we don't need
+        // to validate the default provider since the agent will use its own credentials
+        let agent_has_custom_credentials = if let Some(ref agent_id) = active_agent {
+            if let Ok(agents) = self.api.get_agents().await {
+                agents.iter().any(|a| {
+                    a.id.as_str() == agent_id.as_str() && (a.custom_api_key.is_some() || a.custom_url.is_some())
+                })
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // Only validate default provider if no agent has custom credentials
+        // This prevents login prompts when agents have their own api_key configured
+        let provider_result = if !agent_has_custom_credentials {
+            self.api.get_default_provider().await
+        } else {
+            // Skip validation - agent has custom credentials
+            Err(anyhow::anyhow!("Agent has custom credentials"))
+        };
+
+        if provider_result.is_err() {
             self.on_provider_selection().await?;
         }
-
         if first {
             // Create base workflow and trigger updates if this is the first initialization
             let mut base_workflow = Workflow::default();
