@@ -12,6 +12,82 @@ use crate::temperature::Temperature;
 use crate::template::Template;
 use crate::{EventContext, MaxTokens, ModelId, ProviderId, SystemContext, ToolName, TopK, TopP};
 
+use crate::auth::ApiKey;
+
+// ========================================
+// Provider Configuration Types (TDD)
+// ========================================
+
+/// Model control parameters - allows fine-grained control over model behavior
+#[derive(Debug, Clone, Serialize, Deserialize, Merge, Setters, JsonSchema, Default)]
+#[setters(strip_option, into)]
+pub struct ModelParameters {
+    /// Temperature for response generation
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub temperature: Option<Temperature>,
+
+    /// Nucleus sampling parameter
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub top_p: Option<TopP>,
+
+    /// Top-k sampling parameter
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub top_k: Option<TopK>,
+
+    /// Maximum tokens to generate
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub max_tokens: Option<MaxTokens>,
+
+    /// Reasoning configuration (for models that support it)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub reasoning: Option<ReasoningConfig>,
+
+    /// Maximum number of tool failures per turn
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::std::overwrite)]
+    pub max_tool_failure_per_turn: Option<usize>,
+
+    /// Maximum number of requests per turn
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::std::overwrite)]
+    pub max_requests_per_turn: Option<usize>,
+}
+
+/// Agent-level provider configuration
+/// Allows each agent to have its own provider, model, API key, and parameters
+#[derive(Debug, Clone, Serialize, Deserialize, Merge, Setters, JsonSchema, Default)]
+#[setters(strip_option, into)]
+pub struct ProviderConfig {
+    /// Provider ID (openai, anthropic, etc.)
+    pub provider: ProviderId,
+
+    /// Model ID (gpt-4o, claude-3-5-sonnet, etc.)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub model: Option<ModelId>,
+
+    /// API Key (supports ${ENV_VAR} format)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub api_key: Option<ApiKey>,
+
+    /// Custom Base URL (for proxies or self-hosted) - stored as string
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    #[schemars(skip)]
+    pub base_url: Option<String>,
+
+    /// Model control parameters
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub parameters: Option<ModelParameters>,
+}
+
 // Unique identifier for an agent
 #[derive(Debug, Display, Eq, PartialEq, Hash, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
@@ -48,7 +124,7 @@ impl Default for AgentId {
 /// Agent definition - used for deserialization from configuration files
 /// Fields like model and provider are optional to support defaults
 #[derive(Debug, Clone, Serialize, Deserialize, Merge, Setters, JsonSchema)]
-#[setters(strip_option, into)]
+#[setters(strip_option)]
 #[serde(rename = "Agent")]
 pub struct AgentDefinition {
     /// Flag to enable/disable tool support for this agent.
@@ -74,6 +150,12 @@ pub struct AgentDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[merge(strategy = crate::merge::option)]
     pub provider: Option<ProviderId>,
+
+    /// Full provider configuration (new design)
+    /// Allows each agent to have its own provider, model, API key, and parameters
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[merge(strategy = crate::merge::option)]
+    pub provider_config: Option<ProviderConfig>,
 
     // The language model ID to be used by this agent
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -271,6 +353,7 @@ impl AgentDefinition {
             max_tool_failure_per_turn: Default::default(),
             max_requests_per_turn: Default::default(),
             provider: Default::default(),
+            provider_config: Default::default(),
             path: Default::default(),
         }
     }
@@ -313,6 +396,145 @@ mod tests {
         assert_eq!(Effort::from(8193), Effort::High);
         assert_eq!(Effort::from(10000), Effort::High);
         assert_eq!(Effort::from(100000), Effort::High);
+    }
+
+    // ========================================
+    // ProviderConfig Tests (TDD)
+    // ========================================
+
+    #[test]
+    fn test_provider_config_basic_parsing() {
+        use serde_yml;
+        
+        // Test that provider_config can be parsed from YAML with basic fields
+        let yaml = r#"
+id: test-agent
+title: Test Agent
+provider_config:
+  provider: anthropic
+  model: claude-3-5-sonnet-20241022
+"#;
+        let def: AgentDefinition = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(def.id.as_str(), "test-agent");
+        assert!(def.provider_config.is_some());
+        let config = def.provider_config.unwrap();
+        assert_eq!(config.provider.as_ref(), "anthropic");
+        assert_eq!(config.model.as_ref().map(|m| m.as_str()), Some("claude-3-5-sonnet-20241022"));
+    }
+
+    #[test]
+    fn test_provider_config_optional_fields() {
+        // Test that optional fields can be omitted
+        let json = json!({
+            "id": "test-agent",
+            "provider_config": {
+                "provider": "openai"
+            }
+        });
+        
+        let agent: AgentDefinition = serde_json::from_value(json).unwrap();
+        
+        assert!(agent.provider_config.is_some());
+        let config = agent.provider_config.unwrap();
+        assert_eq!(config.provider.as_ref(), "openai");
+        assert!(config.model.is_none());
+        assert!(config.api_key.is_none());
+        assert!(config.base_url.is_none());
+        assert!(config.parameters.is_none());
+    }
+
+    #[test]
+    fn test_provider_config_with_parameters() {
+        // Test provider config with all parameters
+        let json = json!({
+            "id": "test-agent",
+            "provider_config": {
+                "provider": "anthropic",
+                "model": "claude-3-5-sonnet-20241022",
+                "parameters": {
+                    "temperature": 0.8,
+                    "top_p": 0.9,
+                    "max_tokens": 8000,
+                    "reasoning": {
+                        "enabled": true,
+                        "effort": "high",
+                        "max_tokens": 4000
+                    }
+                }
+            }
+        });
+
+        let agent: AgentDefinition = serde_json::from_value(json).unwrap();
+        
+        let config = agent.provider_config.unwrap();
+        assert_eq!(config.provider.as_ref(), "anthropic");
+        
+        let params = config.parameters.unwrap();
+        assert_eq!(params.temperature.unwrap().value(), 0.8);
+        assert_eq!(params.top_p.unwrap().value(), 0.9);
+        assert_eq!(params.max_tokens.unwrap().value(), 8000);
+        
+        let reasoning = params.reasoning.unwrap();
+        assert!(reasoning.enabled.unwrap_or(false));
+        assert_eq!(reasoning.effort, Some(Effort::High));
+    }
+
+    #[test]
+    fn test_provider_config_with_model() {
+        // Test that model is parsed correctly
+        let json = json!({
+            "id": "test-agent",
+            "provider_config": {
+                "provider": "openai",
+                "model": "gpt-4o"
+            }
+        });
+
+        let agent: AgentDefinition = serde_json::from_value(json).unwrap();
+        
+        assert!(agent.provider_config.is_some(), "Provider config should be parsed");
+        let config = agent.provider_config.unwrap();
+        assert_eq!(config.provider.as_ref(), "openai");
+        assert_eq!(config.model.unwrap().as_str(), "gpt-4o");
+    }
+
+    #[test]
+    fn test_provider_config_merge() {
+        // Test merging provider configs - other should override base
+        let mut base = AgentDefinition::new("base").provider_config(ProviderConfig {
+            provider: ProviderId::new("openai"),
+            model: Some(ModelId::new("gpt-4o")),
+            api_key: None,
+            base_url: None,
+            parameters: None,
+        });
+        
+        let other = AgentDefinition::new("other").provider_config(ProviderConfig {
+            provider: ProviderId::new("anthropic"),
+            model: Some(ModelId::new("claude-3-5-sonnet")),
+            api_key: None,
+            base_url: None,
+            parameters: None,
+        });
+        
+        base.merge(other);
+        
+        // After merge, base should have other's provider config
+        let config = base.provider_config.unwrap();
+        assert_eq!(config.provider.as_ref(), "anthropic");
+        assert_eq!(config.model.unwrap().as_str(), "claude-3-5-sonnet");
+    }
+
+    #[test]
+    fn test_agent_provider_fallback() {
+        // Test that legacy provider field still works
+        let json = json!({
+            "id": "test-agent",
+            "provider": "openai"
+        });
+
+        let agent: AgentDefinition = serde_json::from_value(json).unwrap();
+        assert_eq!(agent.provider.unwrap().as_ref(), "openai");
     }
 
     #[test]

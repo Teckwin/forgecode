@@ -44,6 +44,16 @@ pub enum ProviderType {
 pub struct ProviderId(Cow<'static, str>);
 
 impl ProviderId {
+    /// Creates a new ProviderId from a string
+    pub fn new(id: impl Into<Cow<'static, str>>) -> Self {
+        Self(id.into())
+    }
+
+    /// Returns the provider ID as a string slice
+    pub fn as_str(&self) -> &str {
+        self.0.as_ref()
+    }
+
     // Built-in provider constants
     pub const FORGE: ProviderId = ProviderId(Cow::Borrowed("forge"));
     pub const OPENAI: ProviderId = ProviderId(Cow::Borrowed("openai"));
@@ -179,6 +189,18 @@ impl std::str::FromStr for ProviderId {
 impl From<String> for ProviderId {
     fn from(s: String) -> Self {
         std::str::FromStr::from_str(&s).unwrap()
+    }
+}
+
+impl Default for ProviderId {
+    fn default() -> Self {
+        Self::OPENAI
+    }
+}
+
+impl merge::Merge for ProviderId {
+    fn merge(&mut self, other: Self) {
+        *self = other;
     }
 }
 

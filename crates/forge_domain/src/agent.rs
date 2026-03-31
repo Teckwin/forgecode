@@ -181,13 +181,28 @@ impl Agent {
         provider_id: ProviderId,
         model_id: ModelId,
     ) -> Self {
+        // Priority: provider_config > legacy fields > defaults
+        let (provider, model) = if let Some(ref config) = def.provider_config {
+            // Use provider_config values
+            (
+                config.provider.clone(),
+                config.model.clone().unwrap_or(model_id),
+            )
+        } else {
+            // Fall back to legacy fields or defaults
+            (
+                def.provider.unwrap_or(provider_id),
+                def.model.unwrap_or(model_id),
+            )
+        };
+
         Agent {
             tool_supported: def.tool_supported,
             id: def.id,
             title: def.title,
             description: def.description,
-            provider: def.provider.unwrap_or(provider_id),
-            model: def.model.unwrap_or(model_id),
+            provider,
+            model,
             system_prompt: def.system_prompt,
             user_prompt: def.user_prompt,
             temperature: def.temperature,
@@ -223,5 +238,143 @@ impl From<Agent> for ToolDefinition {
             description,
             input_schema: schemars::schema_for!(crate::AgentInput),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that from_agent_def correctly merges provider_config
+    /// This test validates the TDD approach for the multi-provider feature
+    #[test]
+    fn test_from_agent_def_uses_provider_config() {
+        // Arrange: Create AgentDefinition with provider_config
+        let def = AgentDefinition {
+            id: AgentId::new("test_agent"),
+            title: Some("Test Agent".to_string()),
+            description: Some("A test agent".to_string()),
+            provider: None, // No legacy provider
+            model: None,    // No legacy model
+            provider_config: Some(crate::ProviderConfig {
+                provider: ProviderId::OPENAI,
+                model: Some(crate::ModelId::new("gpt-4o")),
+                api_key: None,
+                base_url: None,
+                parameters: None,
+            }),
+            tool_supported: None,
+            system_prompt: None,
+            user_prompt: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            tools: None,
+            reasoning: None,
+            compact: None,
+            max_turns: None,
+            custom_rules: None,
+            max_tool_failure_per_turn: None,
+            max_requests_per_turn: None,
+            path: None,
+        };
+
+        // Act: Convert to Agent with default provider/model
+        let agent = Agent::from_agent_def(
+            def.clone(),
+            ProviderId::ANTHROPIC,  // Default - should be overridden
+            crate::ModelId::new("claude-3-haiku"), // Default - should be overridden
+        );
+
+        // Assert: Agent should use provider_config values
+        assert_eq!(agent.provider, ProviderId::OPENAI);
+        assert_eq!(agent.model, crate::ModelId::new("gpt-4o"));
+    }
+
+    /// Test that legacy provider/model fields still work when provider_config is not set
+    #[test]
+    fn test_from_agent_def_falls_back_to_legacy_fields() {
+        // Arrange: Create AgentDefinition with legacy provider/model but no provider_config
+        let def = AgentDefinition {
+            id: AgentId::new("test_agent"),
+            title: Some("Test Agent".to_string()),
+            description: Some("A test agent".to_string()),
+            provider: Some(ProviderId::OPENAI), // Legacy field
+            model: Some(crate::ModelId::new("gpt-4o")), // Legacy field
+            provider_config: None, // No provider_config
+            tool_supported: None,
+            system_prompt: None,
+            user_prompt: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            tools: None,
+            reasoning: None,
+            compact: None,
+            max_turns: None,
+            custom_rules: None,
+            max_tool_failure_per_turn: None,
+            max_requests_per_turn: None,
+            path: None,
+        };
+
+        // Act: Convert to Agent
+        let agent = Agent::from_agent_def(
+            def.clone(),
+            ProviderId::ANTHROPIC,  // Default - should NOT be used
+            crate::ModelId::new("claude-3-haiku"),
+        );
+
+        // Assert: Agent should use legacy field values
+        assert_eq!(agent.provider, ProviderId::OPENAI);
+        assert_eq!(agent.model, crate::ModelId::new("gpt-4o"));
+    }
+
+    /// Test that provider_config takes priority over legacy fields
+    #[test]
+    fn test_provider_config_priority_over_legacy() {
+        // Arrange: Create AgentDefinition with BOTH provider_config and legacy fields
+        let def = AgentDefinition {
+            id: AgentId::new("test_agent"),
+            title: Some("Test Agent".to_string()),
+            description: Some("A test agent".to_string()),
+            provider: Some(ProviderId::ANTHROPIC), // Legacy - different
+            model: Some(crate::ModelId::new("claude-3-haiku")), // Legacy - different
+            provider_config: Some(crate::ProviderConfig {
+                provider: ProviderId::OPENAI,
+                model: Some(crate::ModelId::new("gpt-4o")),
+                api_key: None,
+                base_url: None,
+                parameters: None,
+            }),
+            tool_supported: None,
+            system_prompt: None,
+            user_prompt: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            tools: None,
+            reasoning: None,
+            compact: None,
+            max_turns: None,
+            custom_rules: None,
+            max_tool_failure_per_turn: None,
+            max_requests_per_turn: None,
+            path: None,
+        };
+
+        // Act: Convert to Agent
+        let agent = Agent::from_agent_def(
+            def.clone(),
+            ProviderId::OPENAI,  // Default - should NOT be used (provider_config takes priority)
+            crate::ModelId::new("gpt-4o"),
+        );
+
+        // Assert: provider_config should take priority
+        assert_eq!(agent.provider, ProviderId::OPENAI);
+        assert_eq!(agent.model, crate::ModelId::new("gpt-4o"));
     }
 }
