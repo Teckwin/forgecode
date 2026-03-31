@@ -205,6 +205,17 @@
         }
       ]
     },
+    "sandbox": {
+      "description": "Sandbox security configuration for tool execution",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SandboxConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "sem_search_top_k": {
       "description": "Top-k parameter for relevance filtering during semantic search",
       "type": "integer",
@@ -400,6 +411,46 @@
         }
       }
     },
+    "FilesystemSandboxConfig": {
+      "description": "Filesystem sandbox configuration",
+      "type": "object",
+      "properties": {
+        "allow-delete": {
+          "description": "Whether delete operations are allowed",
+          "type": "boolean",
+          "default": false
+        },
+        "allow-read": {
+          "description": "Whether read operations are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allow-write": {
+          "description": "Whether write operations are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allowed-directories": {
+          "description": "List of allowed directories (if empty, all directories are allowed)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked-directories": {
+          "description": "List of blocked directories",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Whether filesystem sandbox is enabled",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
     "HttpConfig": {
       "description": "HTTP client configuration.",
       "type": "object",
@@ -529,6 +580,41 @@
         }
       }
     },
+    "NetworkSandboxConfig": {
+      "description": "Network sandbox configuration",
+      "type": "object",
+      "properties": {
+        "allow-http": {
+          "description": "Whether HTTP requests are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allow-https": {
+          "description": "Whether HTTPS requests are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allowed-domains": {
+          "description": "List of allowed domains (if empty, all domains are allowed)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked-domains": {
+          "description": "List of blocked domains",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Whether network sandbox is enabled",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
     "RetryConfig": {
       "description": "Configuration for retry mechanism.",
       "type": "object",
@@ -589,6 +675,89 @@
         "status_codes",
         "suppress_errors"
       ]
+    },
+    "SandboxConfig": {
+      "description": "Sandbox security configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether sandbox is enabled globally",
+          "type": "boolean",
+          "default": true
+        },
+        "filesystem": {
+          "description": "Filesystem access configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilesystemSandboxConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "network": {
+          "description": "Network access configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetworkSandboxConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shell": {
+          "description": "Shell command execution configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShellSandboxConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ShellSandboxConfig": {
+      "description": "Shell command sandbox configuration",
+      "type": "object",
+      "properties": {
+        "allowed-commands": {
+          "description": "List of allowed commands (if empty, all commands are allowed)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked-commands": {
+          "description": "List of blocked commands",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Whether shell sandbox is enabled",
+          "type": "boolean",
+          "default": true
+        },
+        "timeout-secs": {
+          "description": "Maximum execution time in seconds",
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        },
+        "working-directory": {
+          "description": "Working directory for command execution (null = current dir)",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
     },
     "TlsBackend": {
       "description": "TLS backend option.",

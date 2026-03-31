@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::reader::ConfigReader;
 use crate::writer::ConfigWriter;
-use crate::{AutoDumpFormat, Compact, Decimal, HttpConfig, ModelConfig, RetryConfig, Update};
+use crate::{
+    AutoDumpFormat, Compact, Decimal, HttpConfig, ModelConfig, RetryConfig, SandboxConfig, Update,
+};
 
 /// Top-level Forge configuration merged from all sources (defaults, file,
 /// environment).
@@ -66,6 +68,9 @@ pub struct ForgeConfig {
     pub max_parallel_file_reads: usize,
     /// TTL in seconds for the model API list cache
     pub model_cache_ttl_secs: u64,
+    /// Sandbox security configuration for tool execution
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxConfig>,
     /// Default model and provider configuration used when not overridden by
     /// individual agents.    
     #[serde(default)]

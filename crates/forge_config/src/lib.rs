@@ -9,6 +9,7 @@ mod model;
 mod percentage;
 mod reader;
 mod retry;
+mod sandbox_config;
 mod writer;
 
 pub use auto_dump::*;
@@ -21,6 +22,7 @@ pub use model::*;
 pub use percentage::*;
 pub use reader::*;
 pub use retry::*;
+pub use sandbox_config::*;
 pub use writer::*;
 
 /// A `Result` type alias for this crate's [`Error`] type.
