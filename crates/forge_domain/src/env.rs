@@ -147,6 +147,9 @@ pub struct Environment {
     /// Whether the application is running in restricted mode.
     /// When true, tool execution requires explicit permission grants.
     pub is_restricted: bool,
+    /// Sandbox configuration for tool execution security
+    #[dummy(default)]
+    pub sandbox_config: Option<forge_config::SandboxConfig>,
 
     /// Whether tool use is supported in the current environment.
     /// When false, tool calls are disabled regardless of agent configuration.

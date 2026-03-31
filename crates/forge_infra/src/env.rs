@@ -164,6 +164,7 @@ fn to_environment(fc: ForgeConfig, cwd: PathBuf) -> Environment {
         commit: fc.commit.as_ref().map(to_session_config),
         suggest: fc.suggest.as_ref().map(to_session_config),
         is_restricted: fc.restricted,
+        sandbox_config: fc.sandbox,
         tool_supported: fc.tool_supported,
         temperature: fc
             .temperature
@@ -324,6 +325,7 @@ fn to_forge_config(env: &Environment) -> ForgeConfig {
     fc.model_cache_ttl_secs = env.model_cache_ttl;
     fc.restricted = env.is_restricted;
     fc.tool_supported = env.tool_supported;
+    fc.sandbox = env.sandbox_config.clone();
 
     // --- Workflow fields ---
     fc.temperature = env

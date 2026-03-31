@@ -4,131 +4,16 @@
   "description": "Top-level Forge configuration merged from all sources (defaults, file,\nenvironment).",
   "type": "object",
   "properties": {
-    "auto_dump": {
-      "description": "Format for automatically creating a dump when a task is completed",
+    "retry": {
+      "description": "Configuration for the retry mechanism",
       "anyOf": [
         {
-          "$ref": "#/$defs/AutoDumpFormat"
+          "$ref": "#/$defs/RetryConfig"
         },
         {
           "type": "null"
         }
       ]
-    },
-    "auto_open_dump": {
-      "description": "Whether to automatically open HTML dump files in the browser",
-      "type": "boolean"
-    },
-    "commit": {
-      "description": "Provider and model to use for commit message generation",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ModelConfig"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "compact": {
-      "description": "Context compaction settings applied to all agents; falls back to each\nagent's individual setting when absent.",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/Compact"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "custom_history_path": {
-      "description": "Custom history file path",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "debug_requests": {
-      "description": "Path where debug request files should be written",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "http": {
-      "description": "HTTP configuration",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/HttpConfig"
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
-    "max_conversations": {
-      "description": "Maximum number of conversations to show in list",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_extensions": {
-      "description": "Maximum number of file extensions to include in the system prompt",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_fetch_chars": {
-      "description": "Maximum characters for fetch content",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_file_read_batch_size": {
-      "description": "Maximum number of files that can be read in a single batch operation",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_file_size_bytes": {
-      "description": "Maximum file size in bytes for operations",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0
-    },
-    "max_image_size_bytes": {
-      "description": "Maximum image file size in bytes for binary read operations",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0
-    },
-    "max_line_chars": {
-      "description": "Maximum characters per line for file read operations",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_parallel_file_reads": {
-      "description": "Maximum number of files read concurrently in parallel operations",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_read_lines": {
-      "description": "Maximum number of lines to read from a file",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0
-    },
-    "max_requests_per_turn": {
-      "description": "Maximum number of requests that can be made in a single turn.",
-      "type": [
-        "integer",
-        "null"
-      ],
-      "format": "uint",
-      "minimum": 0
     },
     "max_search_lines": {
       "description": "The maximum number of lines returned for FSSearch",
@@ -142,14 +27,8 @@
       "format": "uint",
       "minimum": 0
     },
-    "max_sem_search_results": {
-      "description": "Maximum number of results to return from initial vector search",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "max_stdout_line_chars": {
-      "description": "Maximum characters per line for shell output",
+    "max_fetch_chars": {
+      "description": "Maximum characters for fetch content",
       "type": "integer",
       "format": "uint",
       "minimum": 0
@@ -166,21 +45,119 @@
       "format": "uint",
       "minimum": 0
     },
-    "max_tokens": {
-      "description": "Maximum tokens the model may generate per response for all agents\n(1–100,000).",
-      "type": [
-        "integer",
-        "null"
-      ],
-      "format": "uint32",
+    "max_stdout_line_chars": {
+      "description": "Maximum characters per line for shell output",
+      "type": "integer",
+      "format": "uint",
       "minimum": 0
     },
-    "max_tool_failure_per_turn": {
-      "description": "Maximum tool failures per turn before the orchestrator forces\ncompletion.",
+    "max_line_chars": {
+      "description": "Maximum characters per line for file read operations",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "max_read_lines": {
+      "description": "Maximum number of lines to read from a file",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "max_file_read_batch_size": {
+      "description": "Maximum number of files that can be read in a single batch operation",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "http": {
+      "description": "HTTP configuration",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HttpConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "max_file_size_bytes": {
+      "description": "Maximum file size in bytes for operations",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "max_image_size_bytes": {
+      "description": "Maximum image file size in bytes for binary read operations",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "tool_timeout_secs": {
+      "description": "Maximum execution time in seconds for a single tool call",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0
+    },
+    "auto_open_dump": {
+      "description": "Whether to automatically open HTML dump files in the browser",
+      "type": "boolean"
+    },
+    "debug_requests": {
+      "description": "Path where debug request files should be written",
       "type": [
-        "integer",
+        "string",
         "null"
-      ],
+      ]
+    },
+    "custom_history_path": {
+      "description": "Custom history file path",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "max_conversations": {
+      "description": "Maximum number of conversations to show in list",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "max_sem_search_results": {
+      "description": "Maximum number of results to return from initial vector search",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "sem_search_top_k": {
+      "description": "Top-k parameter for relevance filtering during semantic search",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "services_url": {
+      "description": "URL for the indexing server",
+      "type": "string"
+    },
+    "max_extensions": {
+      "description": "Maximum number of file extensions to include in the system prompt",
+      "type": "integer",
+      "format": "uint",
+      "minimum": 0
+    },
+    "auto_dump": {
+      "description": "Format for automatically creating a dump when a task is completed",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AutoDumpFormat"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "max_parallel_file_reads": {
+      "description": "Maximum number of files read concurrently in parallel operations",
+      "type": "integer",
       "format": "uint",
       "minimum": 0
     },
@@ -189,21 +166,6 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0
-    },
-    "restricted": {
-      "description": "Whether the application is running in restricted mode.\nWhen true, tool execution requires explicit permission grants.",
-      "type": "boolean"
-    },
-    "retry": {
-      "description": "Configuration for the retry mechanism",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/RetryConfig"
-        },
-        {
-          "type": "null"
-        }
-      ]
     },
     "sandbox": {
       "description": "Sandbox security configuration for tool execution",
@@ -216,18 +178,20 @@
         }
       ]
     },
-    "sem_search_top_k": {
-      "description": "Top-k parameter for relevance filtering during semantic search",
-      "type": "integer",
-      "format": "uint",
-      "minimum": 0
-    },
-    "services_url": {
-      "description": "URL for the indexing server",
-      "type": "string"
-    },
     "session": {
       "description": "Default model and provider configuration used when not overridden by\nindividual agents.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "commit": {
+      "description": "Provider and model to use for commit message generation",
       "anyOf": [
         {
           "$ref": "#/$defs/ModelConfig"
@@ -250,6 +214,17 @@
       ],
       "default": null
     },
+    "updates": {
+      "description": "Configuration for automatic forge updates",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Update"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "temperature": {
       "description": "Output randomness for all agents; lower values are deterministic, higher\nvalues are creative (0.0–2.0).",
       "anyOf": [
@@ -260,25 +235,6 @@
           "type": "null"
         }
       ]
-    },
-    "tool_supported": {
-      "description": "Whether tool use is supported in the current environment.\nWhen false, tool calls are disabled regardless of agent configuration.",
-      "type": "boolean"
-    },
-    "tool_timeout_secs": {
-      "description": "Maximum execution time in seconds for a single tool call",
-      "type": "integer",
-      "format": "uint64",
-      "minimum": 0
-    },
-    "top_k": {
-      "description": "Top-k vocabulary cutoff for all agents; restricts sampling to the k\nhighest-probability tokens (1–1000).",
-      "type": [
-        "integer",
-        "null"
-      ],
-      "format": "uint32",
-      "minimum": 0
     },
     "top_p": {
       "description": "Nucleus sampling threshold for all agents; limits token selection to the\ntop cumulative probability mass (0.0–1.0).",
@@ -291,16 +247,60 @@
         }
       ]
     },
-    "updates": {
-      "description": "Configuration for automatic forge updates",
+    "top_k": {
+      "description": "Top-k vocabulary cutoff for all agents; restricts sampling to the k\nhighest-probability tokens (1–1000).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "max_tokens": {
+      "description": "Maximum tokens the model may generate per response for all agents\n(1–100,000).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "max_tool_failure_per_turn": {
+      "description": "Maximum tool failures per turn before the orchestrator forces\ncompletion.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    },
+    "max_requests_per_turn": {
+      "description": "Maximum number of requests that can be made in a single turn.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0
+    },
+    "compact": {
+      "description": "Context compaction settings applied to all agents; falls back to each\nagent's individual setting when absent.",
       "anyOf": [
         {
-          "$ref": "#/$defs/Update"
+          "$ref": "#/$defs/Compact"
         },
         {
           "type": "null"
         }
       ]
+    },
+    "restricted": {
+      "description": "Whether the application is running in restricted mode.\nWhen true, tool execution requires explicit permission grants.",
+      "type": "boolean"
+    },
+    "tool_supported": {
+      "description": "Whether tool use is supported in the current environment.\nWhen false, tool calls are disabled regardless of agent configuration.",
+      "type": "boolean"
     }
   },
   "required": [
@@ -328,6 +328,194 @@
     "tool_supported"
   ],
   "$defs": {
+    "RetryConfig": {
+      "description": "Configuration for retry mechanism.",
+      "type": "object",
+      "properties": {
+        "initial_backoff_ms": {
+          "description": "Initial backoff delay in milliseconds for retry operations",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "min_delay_ms": {
+          "description": "Minimum delay in milliseconds between retry attempts",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "backoff_factor": {
+          "description": "Backoff multiplication factor for each retry attempt",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "max_attempts": {
+          "description": "Maximum number of retry attempts",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "status_codes": {
+          "description": "HTTP status codes that should trigger retries",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        },
+        "max_delay_secs": {
+          "description": "Maximum delay between retries in seconds",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "suppress_errors": {
+          "description": "Whether to suppress retry error logging and events",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "initial_backoff_ms",
+        "min_delay_ms",
+        "backoff_factor",
+        "max_attempts",
+        "status_codes",
+        "suppress_errors"
+      ]
+    },
+    "HttpConfig": {
+      "description": "HTTP client configuration.",
+      "type": "object",
+      "properties": {
+        "connect_timeout_secs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "read_timeout_secs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "pool_idle_timeout_secs": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "pool_max_idle_per_host": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "max_redirects": {
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0
+        },
+        "hickory": {
+          "type": "boolean"
+        },
+        "tls_backend": {
+          "$ref": "#/$defs/TlsBackend"
+        },
+        "min_tls_version": {
+          "description": "Minimum TLS protocol version to use",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TlsVersion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_tls_version": {
+          "description": "Maximum TLS protocol version to use",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TlsVersion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "adaptive_window": {
+          "description": "Adaptive window sizing for improved flow control",
+          "type": "boolean"
+        },
+        "keep_alive_interval_secs": {
+          "description": "Keep-alive interval in seconds",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "keep_alive_timeout_secs": {
+          "description": "Keep-alive timeout in seconds",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "keep_alive_while_idle": {
+          "description": "Keep-alive while connection is idle",
+          "type": "boolean"
+        },
+        "accept_invalid_certs": {
+          "description": "Accept invalid certificates",
+          "type": "boolean"
+        },
+        "root_cert_paths": {
+          "description": "Paths to root certificate files",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "connect_timeout_secs",
+        "read_timeout_secs",
+        "pool_idle_timeout_secs",
+        "pool_max_idle_per_host",
+        "max_redirects",
+        "hickory",
+        "tls_backend",
+        "adaptive_window",
+        "keep_alive_timeout_secs",
+        "keep_alive_while_idle",
+        "accept_invalid_certs"
+      ]
+    },
+    "TlsBackend": {
+      "description": "TLS backend option.",
+      "type": "string",
+      "enum": [
+        "default",
+        "rustls"
+      ]
+    },
+    "TlsVersion": {
+      "description": "TLS version enum for configuring TLS protocol versions.",
+      "type": "string",
+      "enum": [
+        "1.0",
+        "1.1",
+        "1.2",
+        "1.3"
+      ]
+    },
     "AutoDumpFormat": {
       "description": "The output format used when auto-dumping a conversation on task completion.",
       "oneOf": [
@@ -343,10 +531,257 @@
         }
       ]
     },
+    "SandboxConfig": {
+      "description": "Sandbox security configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether sandbox is enabled globally",
+          "type": "boolean",
+          "default": true
+        },
+        "permission-mode": {
+          "description": "Permission mode for command execution\n- Blacklist: Allow all by default, block dangerous commands\n- Whitelist: Deny all by default, only allow explicitly listed commands\n- Greylist: Allow by default, prompt for sensitive commands",
+          "$ref": "#/$defs/PermissionMode",
+          "default": "blacklist"
+        },
+        "shell": {
+          "description": "Shell command execution configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShellSandboxConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filesystem": {
+          "description": "Filesystem access configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FilesystemSandboxConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "network": {
+          "description": "Network access configuration",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetworkSandboxConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PermissionMode": {
+      "description": "Default permission mode for sandbox",
+      "oneOf": [
+        {
+          "description": "Allow all commands by default, block dangerous ones",
+          "type": "string",
+          "const": "blacklist"
+        },
+        {
+          "description": "Deny all commands by default, allow explicitly listed ones",
+          "type": "string",
+          "const": "whitelist"
+        },
+        {
+          "description": "Allow commands but prompt for confirmation on sensitive ones",
+          "type": "string",
+          "const": "greylist"
+        }
+      ]
+    },
+    "ShellSandboxConfig": {
+      "description": "Shell command sandbox configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether shell sandbox is enabled",
+          "type": "boolean",
+          "default": true
+        },
+        "allowed-commands": {
+          "description": "List of allowed commands (if empty, all commands are allowed)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked-commands": {
+          "description": "List of blocked commands",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout-secs": {
+          "description": "Maximum execution time in seconds",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0,
+          "default": 0
+        },
+        "working-directory": {
+          "description": "Working directory for command execution (null = current dir)",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "FilesystemSandboxConfig": {
+      "description": "Filesystem sandbox configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether filesystem sandbox is enabled",
+          "type": "boolean",
+          "default": true
+        },
+        "allowed-directories": {
+          "description": "List of allowed directories (if empty, all directories are allowed)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked-directories": {
+          "description": "List of blocked directories",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow-read": {
+          "description": "Whether read operations are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allow-write": {
+          "description": "Whether write operations are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allow-delete": {
+          "description": "Whether delete operations are allowed",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "NetworkSandboxConfig": {
+      "description": "Network sandbox configuration",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Whether network sandbox is enabled",
+          "type": "boolean",
+          "default": true
+        },
+        "allowed-domains": {
+          "description": "List of allowed domains (if empty, all domains are allowed)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocked-domains": {
+          "description": "List of blocked domains",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow-http": {
+          "description": "Whether HTTP requests are allowed",
+          "type": "boolean",
+          "default": true
+        },
+        "allow-https": {
+          "description": "Whether HTTPS requests are allowed",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "ModelConfig": {
+      "description": "Pairs a provider and model together for a specific operation.",
+      "type": "object",
+      "properties": {
+        "provider_id": {
+          "description": "The provider to use for this operation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_id": {
+          "description": "The model to use for this operation.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "Update": {
+      "description": "Configuration for automatic forge updates",
+      "type": "object",
+      "properties": {
+        "frequency": {
+          "description": "How frequently forge checks for updates",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UpdateFrequency"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "auto_update": {
+          "description": "Whether to automatically install updates without prompting",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "UpdateFrequency": {
+      "description": "Frequency at which forge checks for updates",
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "always"
+      ]
+    },
+    "double": {
+      "type": "number",
+      "format": "double"
+    },
     "Compact": {
       "description": "Configuration for automatic context compaction for all agents",
       "type": "object",
       "properties": {
+        "retention_window": {
+          "description": "Number of most recent messages to preserve during compaction.\nThese messages won't be considered for summarization. Works alongside\neviction_window - the more conservative limit (fewer messages to\ncompact) takes precedence.",
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0,
+          "default": 0
+        },
         "eviction_window": {
           "description": "Maximum percentage of the context that can be summarized during\ncompaction. Valid values are between 0.0 and 1.0, where 0.0 means no\ncompaction and 1.0 allows summarizing all messages. Works alongside\nretention_window - the more conservative limit (fewer messages to\ncompact) takes precedence.",
           "$ref": "#/$defs/double",
@@ -354,6 +789,24 @@
         },
         "max_tokens": {
           "description": "Maximum number of tokens to keep after compaction",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "token_threshold": {
+          "description": "Maximum number of tokens before triggering compaction",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint",
+          "minimum": 0
+        },
+        "turn_threshold": {
+          "description": "Maximum number of conversation turns before triggering compaction",
           "type": [
             "integer",
             "null"
@@ -383,436 +836,8 @@
             "boolean",
             "null"
           ]
-        },
-        "retention_window": {
-          "description": "Number of most recent messages to preserve during compaction.\nThese messages won't be considered for summarization. Works alongside\neviction_window - the more conservative limit (fewer messages to\ncompact) takes precedence.",
-          "type": "integer",
-          "format": "uint",
-          "default": 0,
-          "minimum": 0
-        },
-        "token_threshold": {
-          "description": "Maximum number of tokens before triggering compaction",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint",
-          "minimum": 0
-        },
-        "turn_threshold": {
-          "description": "Maximum number of conversation turns before triggering compaction",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint",
-          "minimum": 0
         }
       }
-    },
-    "FilesystemSandboxConfig": {
-      "description": "Filesystem sandbox configuration",
-      "type": "object",
-      "properties": {
-        "allow-delete": {
-          "description": "Whether delete operations are allowed",
-          "type": "boolean",
-          "default": false
-        },
-        "allow-read": {
-          "description": "Whether read operations are allowed",
-          "type": "boolean",
-          "default": true
-        },
-        "allow-write": {
-          "description": "Whether write operations are allowed",
-          "type": "boolean",
-          "default": true
-        },
-        "allowed-directories": {
-          "description": "List of allowed directories (if empty, all directories are allowed)",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "blocked-directories": {
-          "description": "List of blocked directories",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "enabled": {
-          "description": "Whether filesystem sandbox is enabled",
-          "type": "boolean",
-          "default": true
-        }
-      }
-    },
-    "HttpConfig": {
-      "description": "HTTP client configuration.",
-      "type": "object",
-      "properties": {
-        "accept_invalid_certs": {
-          "description": "Accept invalid certificates",
-          "type": "boolean"
-        },
-        "adaptive_window": {
-          "description": "Adaptive window sizing for improved flow control",
-          "type": "boolean"
-        },
-        "connect_timeout_secs": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "hickory": {
-          "type": "boolean"
-        },
-        "keep_alive_interval_secs": {
-          "description": "Keep-alive interval in seconds",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "keep_alive_timeout_secs": {
-          "description": "Keep-alive timeout in seconds",
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "keep_alive_while_idle": {
-          "description": "Keep-alive while connection is idle",
-          "type": "boolean"
-        },
-        "max_redirects": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "max_tls_version": {
-          "description": "Maximum TLS protocol version to use",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TlsVersion"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "min_tls_version": {
-          "description": "Minimum TLS protocol version to use",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/TlsVersion"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "pool_idle_timeout_secs": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "pool_max_idle_per_host": {
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "read_timeout_secs": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "root_cert_paths": {
-          "description": "Paths to root certificate files",
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "type": "string"
-          }
-        },
-        "tls_backend": {
-          "$ref": "#/$defs/TlsBackend"
-        }
-      },
-      "required": [
-        "connect_timeout_secs",
-        "read_timeout_secs",
-        "pool_idle_timeout_secs",
-        "pool_max_idle_per_host",
-        "max_redirects",
-        "hickory",
-        "tls_backend",
-        "adaptive_window",
-        "keep_alive_timeout_secs",
-        "keep_alive_while_idle",
-        "accept_invalid_certs"
-      ]
-    },
-    "ModelConfig": {
-      "description": "Pairs a provider and model together for a specific operation.",
-      "type": "object",
-      "properties": {
-        "model_id": {
-          "description": "The model to use for this operation.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "provider_id": {
-          "description": "The provider to use for this operation.",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      }
-    },
-    "NetworkSandboxConfig": {
-      "description": "Network sandbox configuration",
-      "type": "object",
-      "properties": {
-        "allow-http": {
-          "description": "Whether HTTP requests are allowed",
-          "type": "boolean",
-          "default": true
-        },
-        "allow-https": {
-          "description": "Whether HTTPS requests are allowed",
-          "type": "boolean",
-          "default": true
-        },
-        "allowed-domains": {
-          "description": "List of allowed domains (if empty, all domains are allowed)",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "blocked-domains": {
-          "description": "List of blocked domains",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "enabled": {
-          "description": "Whether network sandbox is enabled",
-          "type": "boolean",
-          "default": true
-        }
-      }
-    },
-    "RetryConfig": {
-      "description": "Configuration for retry mechanism.",
-      "type": "object",
-      "properties": {
-        "backoff_factor": {
-          "description": "Backoff multiplication factor for each retry attempt",
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "initial_backoff_ms": {
-          "description": "Initial backoff delay in milliseconds for retry operations",
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "max_attempts": {
-          "description": "Maximum number of retry attempts",
-          "type": "integer",
-          "format": "uint",
-          "minimum": 0
-        },
-        "max_delay_secs": {
-          "description": "Maximum delay between retries in seconds",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0
-        },
-        "min_delay_ms": {
-          "description": "Minimum delay in milliseconds between retry attempts",
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0
-        },
-        "status_codes": {
-          "description": "HTTP status codes that should trigger retries",
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "uint16",
-            "maximum": 65535,
-            "minimum": 0
-          }
-        },
-        "suppress_errors": {
-          "description": "Whether to suppress retry error logging and events",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "initial_backoff_ms",
-        "min_delay_ms",
-        "backoff_factor",
-        "max_attempts",
-        "status_codes",
-        "suppress_errors"
-      ]
-    },
-    "SandboxConfig": {
-      "description": "Sandbox security configuration",
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "description": "Whether sandbox is enabled globally",
-          "type": "boolean",
-          "default": true
-        },
-        "filesystem": {
-          "description": "Filesystem access configuration",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/FilesystemSandboxConfig"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "network": {
-          "description": "Network access configuration",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NetworkSandboxConfig"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "shell": {
-          "description": "Shell command execution configuration",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ShellSandboxConfig"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      }
-    },
-    "ShellSandboxConfig": {
-      "description": "Shell command sandbox configuration",
-      "type": "object",
-      "properties": {
-        "allowed-commands": {
-          "description": "List of allowed commands (if empty, all commands are allowed)",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "blocked-commands": {
-          "description": "List of blocked commands",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "enabled": {
-          "description": "Whether shell sandbox is enabled",
-          "type": "boolean",
-          "default": true
-        },
-        "timeout-secs": {
-          "description": "Maximum execution time in seconds",
-          "type": "integer",
-          "format": "uint64",
-          "default": 0,
-          "minimum": 0
-        },
-        "working-directory": {
-          "description": "Working directory for command execution (null = current dir)",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      }
-    },
-    "TlsBackend": {
-      "description": "TLS backend option.",
-      "type": "string",
-      "enum": [
-        "default",
-        "rustls"
-      ]
-    },
-    "TlsVersion": {
-      "description": "TLS version enum for configuring TLS protocol versions.",
-      "type": "string",
-      "enum": [
-        "1.0",
-        "1.1",
-        "1.2",
-        "1.3"
-      ]
-    },
-    "Update": {
-      "description": "Configuration for automatic forge updates",
-      "type": "object",
-      "properties": {
-        "auto_update": {
-          "description": "Whether to automatically install updates without prompting",
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "frequency": {
-          "description": "How frequently forge checks for updates",
-          "anyOf": [
-            {
-              "$ref": "#/$defs/UpdateFrequency"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      }
-    },
-    "UpdateFrequency": {
-      "description": "Frequency at which forge checks for updates",
-      "type": "string",
-      "enum": [
-        "daily",
-        "weekly",
-        "always"
-      ]
-    },
-    "double": {
-      "type": "number",
-      "format": "double"
     }
   }
 }

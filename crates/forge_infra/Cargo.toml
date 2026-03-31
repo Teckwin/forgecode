@@ -47,6 +47,8 @@ http.workspace = true
 url.workspace = true
 tonic.workspace = true
 google-cloud-auth.workspace = true
+ai-sandbox = "0.1.5"
+forge-sandbox = "0.5.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "time", "test-util"] }

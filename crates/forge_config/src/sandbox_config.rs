@@ -2,6 +2,7 @@
 
 use derive_setters::Setters;
 use fake::Dummy;
+use fake::rand;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +14,36 @@ const fn default_false() -> bool {
     false
 }
 
+/// Default permission mode for sandbox
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum PermissionMode {
+    /// Allow all commands by default, block dangerous ones
+    #[default]
+    Blacklist,
+    /// Deny all commands by default, allow explicitly listed ones
+    Whitelist,
+    /// Allow commands but prompt for confirmation on sensitive ones
+    Greylist,
+}
+
+impl<F: fake::Fake> fake::Dummy<F> for PermissionMode {
+    fn dummy(_: &F) -> Self {
+        // Randomly select a permission mode
+        use fake::Fake;
+        let idx: usize = (0..3).fake();
+        match idx {
+            0 => PermissionMode::Blacklist,
+            1 => PermissionMode::Whitelist,
+            _ => PermissionMode::Greylist,
+        }
+    }
+
+    fn dummy_with_rng<R: rand::Rng + ?Sized>(_: &F, _: &mut R) -> Self {
+        Self::dummy(&fake::Faker)
+    }
+}
+
 /// Sandbox security configuration
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Setters, PartialEq, Dummy, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -20,6 +51,13 @@ pub struct SandboxConfig {
     /// Whether sandbox is enabled globally
     #[serde(default = "default_true")]
     pub enabled: bool,
+
+    /// Permission mode for command execution
+    /// - Blacklist: Allow all by default, block dangerous commands
+    /// - Whitelist: Deny all by default, only allow explicitly listed commands
+    /// - Greylist: Allow by default, prompt for sensitive commands
+    #[serde(default)]
+    pub permission_mode: PermissionMode,
 
     /// Shell command execution configuration
     #[serde(default, skip_serializing_if = "Option::is_none")]

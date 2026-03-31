@@ -106,6 +106,7 @@ impl Default for TestContext {
                 max_requests_per_turn: None,
                 compact: None,
                 updates: None,
+                sandbox_config: None,
             },
             title: Some("test-conversation".into()),
             agent: Agent::new(
