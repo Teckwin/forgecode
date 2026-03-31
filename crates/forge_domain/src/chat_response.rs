@@ -212,11 +212,8 @@ impl TitleFormat {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use chrono::{DateTime, Utc};
     use pretty_assertions::assert_eq;
-    use tokio::sync::Notify;
 
     use super::*;
 
