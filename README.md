@@ -24,7 +24,8 @@
     - [Managing Provider Credentials](#managing-provider-credentials)
     - [Deprecated: Environment Variables](#deprecated-environment-variables)
   - [forge.yaml Configuration Options](#forgeyaml-configuration-options)
-  - [Environment Variables](#environment-variables)
+    - [Sandbox Configuration](#sandbox-configuration)
+    - [Environment Variables](#environment-variables)
   - [MCP Configuration](#mcp-configuration)
   - [Example Use Cases](#example-use-cases)
   - [Usage in Multi-Agent Workflows](#usage-in-multi-agent-workflows)
@@ -712,6 +713,50 @@ When this limit is reached, Forge will:
 - Ask you if you wish to continue
 - If you respond with 'Yes', it will continue the conversation
 - If you respond with 'No', it will end the conversation
+
+</details>
+
+<details>
+<summary><strong>Sandbox Configuration</strong></summary>
+
+Configure security sandbox for tool execution to control what operations are allowed. This is useful for restricting dangerous operations and improving security.
+
+```yaml
+# forge.yaml
+sandbox:
+  enabled: true
+  permission_mode: blacklist  # blacklist | whitelist | greylist
+
+  # Shell command execution control
+  shell:
+    enabled: true
+    allowed_commands: []  # Empty = allow all (whitelist mode)
+    blocked_commands: ["rm -rf", "dd", ":(){:|:&};:"]  # Commands to block
+    timeout_secs: 300
+    working_directory: null  # null = current directory
+
+  # Filesystem access control
+  filesystem:
+    enabled: true
+    allowed_directories: []  # Empty = allow all
+    blocked_directories: ["/etc", "/sys", "/proc"]
+    allow_read: true
+    allow_write: true
+    allow_delete: false
+
+  # Network access control
+  network:
+    enabled: true
+    allowed_domains: []  # Empty = allow all
+    blocked_domains: ["evil.com", "malware.net"]
+    allow_http: true
+    allow_https: true
+```
+
+**Permission Modes:**
+- `blacklist` (default): Allow all commands by default, block dangerous ones
+- `whitelist`: Deny all commands by default, only allow explicitly listed ones
+- `greylist`: Allow commands but prompt for confirmation on sensitive ones
 
 </details>
 
