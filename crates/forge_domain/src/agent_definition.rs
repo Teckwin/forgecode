@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn test_provider_config_basic_parsing() {
         use serde_yml;
-        
+
         // Test that provider_config can be parsed from YAML with basic fields
         let yaml = r#"
 id: test-agent
@@ -419,7 +419,10 @@ provider_config:
         assert!(def.provider_config.is_some());
         let config = def.provider_config.unwrap();
         assert_eq!(config.provider.as_ref(), "anthropic");
-        assert_eq!(config.model.as_ref().map(|m| m.as_str()), Some("claude-3-5-sonnet-20241022"));
+        assert_eq!(
+            config.model.as_ref().map(|m| m.as_str()),
+            Some("claude-3-5-sonnet-20241022")
+        );
     }
 
     #[test]
@@ -431,9 +434,9 @@ provider_config:
                 "provider": "openai"
             }
         });
-        
+
         let agent: AgentDefinition = serde_json::from_value(json).unwrap();
-        
+
         assert!(agent.provider_config.is_some());
         let config = agent.provider_config.unwrap();
         assert_eq!(config.provider.as_ref(), "openai");
@@ -465,15 +468,15 @@ provider_config:
         });
 
         let agent: AgentDefinition = serde_json::from_value(json).unwrap();
-        
+
         let config = agent.provider_config.unwrap();
         assert_eq!(config.provider.as_ref(), "anthropic");
-        
+
         let params = config.parameters.unwrap();
         assert_eq!(params.temperature.unwrap().value(), 0.8);
         assert_eq!(params.top_p.unwrap().value(), 0.9);
         assert_eq!(params.max_tokens.unwrap().value(), 8000);
-        
+
         let reasoning = params.reasoning.unwrap();
         assert!(reasoning.enabled.unwrap_or(false));
         assert_eq!(reasoning.effort, Some(Effort::High));
@@ -491,8 +494,11 @@ provider_config:
         });
 
         let agent: AgentDefinition = serde_json::from_value(json).unwrap();
-        
-        assert!(agent.provider_config.is_some(), "Provider config should be parsed");
+
+        assert!(
+            agent.provider_config.is_some(),
+            "Provider config should be parsed"
+        );
         let config = agent.provider_config.unwrap();
         assert_eq!(config.provider.as_ref(), "openai");
         assert_eq!(config.model.unwrap().as_str(), "gpt-4o");
@@ -508,7 +514,7 @@ provider_config:
             base_url: None,
             parameters: None,
         });
-        
+
         let other = AgentDefinition::new("other").provider_config(ProviderConfig {
             provider: ProviderId::new("anthropic"),
             model: Some(ModelId::new("claude-3-5-sonnet")),
@@ -516,9 +522,9 @@ provider_config:
             base_url: None,
             parameters: None,
         });
-        
+
         base.merge(other);
-        
+
         // After merge, base should have other's provider config
         let config = base.provider_config.unwrap();
         assert_eq!(config.provider.as_ref(), "anthropic");

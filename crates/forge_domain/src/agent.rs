@@ -283,7 +283,7 @@ mod tests {
         // Act: Convert to Agent with default provider/model
         let agent = Agent::from_agent_def(
             def.clone(),
-            ProviderId::ANTHROPIC,  // Default - should be overridden
+            ProviderId::ANTHROPIC, // Default - should be overridden
             crate::ModelId::new("claude-3-haiku"), // Default - should be overridden
         );
 
@@ -302,7 +302,7 @@ mod tests {
             description: Some("A test agent".to_string()),
             provider: Some(ProviderId::OPENAI), // Legacy field
             model: Some(crate::ModelId::new("gpt-4o")), // Legacy field
-            provider_config: None, // No provider_config
+            provider_config: None,              // No provider_config
             tool_supported: None,
             system_prompt: None,
             user_prompt: None,
@@ -323,7 +323,7 @@ mod tests {
         // Act: Convert to Agent
         let agent = Agent::from_agent_def(
             def.clone(),
-            ProviderId::ANTHROPIC,  // Default - should NOT be used
+            ProviderId::ANTHROPIC, // Default - should NOT be used
             crate::ModelId::new("claude-3-haiku"),
         );
 
@@ -369,7 +369,7 @@ mod tests {
         // Act: Convert to Agent
         let agent = Agent::from_agent_def(
             def.clone(),
-            ProviderId::OPENAI,  // Default - should NOT be used (provider_config takes priority)
+            ProviderId::OPENAI, // Default - should NOT be used (provider_config takes priority)
             crate::ModelId::new("gpt-4o"),
         );
 
