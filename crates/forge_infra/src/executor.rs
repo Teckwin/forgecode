@@ -8,8 +8,8 @@ use ai_sandbox::{
     Decision, Policy, SandboxCommand, SandboxExecRequest, SandboxManager, SandboxPolicy,
 };
 use forge_app::CommandInfra;
-use forge_config::SandboxConfig;
 use forge_config::PermissionMode;
+use forge_config::SandboxConfig;
 use forge_domain::{CommandOutput, ConsoleWriter as OutputPrinterTrait, Environment};
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
@@ -298,10 +298,9 @@ impl ForgeCommandExecutorService {
         env_vars: &Option<Vec<String>>,
     ) -> anyhow::Result<CommandOutput> {
         // Sandbox is enabled but no manager available - this is a configuration error
-        let manager = self
-            .sandbox_manager
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Sandbox is enabled but sandbox manager is not available"))?;
+        let manager = self.sandbox_manager.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("Sandbox is enabled but sandbox manager is not available")
+        })?;
 
         // Determine shell and arguments
         let is_windows = cfg!(target_os = "windows");
@@ -328,12 +327,7 @@ impl ForgeCommandExecutorService {
         }
 
         // Create sandbox command
-        let sandbox_command = SandboxCommand {
-            program,
-            args,
-            cwd: working_dir.to_path_buf(),
-            env,
-        };
+        let sandbox_command = SandboxCommand { program, args, cwd: working_dir.to_path_buf(), env };
 
         // Build sandbox policy based on permission mode from config
         let policy = self.build_sandbox_policy();
@@ -382,7 +376,10 @@ impl ForgeCommandExecutorService {
 
         // Extract program and args from the transformed command
         let program = command_parts.first().cloned().unwrap_or_default();
-        let args = command_parts.get(1..).map(|a| a.to_vec()).unwrap_or_default();
+        let args = command_parts
+            .get(1..)
+            .map(|a| a.to_vec())
+            .unwrap_or_default();
 
         // Use the working directory from the sandbox request (may be modified by sandbox)
         let cwd = exec_request.cwd.clone();
@@ -433,14 +430,20 @@ impl ForgeCommandExecutorService {
         let mut stderr_buf = Vec::new();
 
         // Use a helper function to read from the pipes
-        async fn read_pipe(pipe: &mut Option<tokio::process::ChildStdout>, buf: &mut Vec<u8>) -> io::Result<()> {
+        async fn read_pipe(
+            pipe: &mut Option<tokio::process::ChildStdout>,
+            buf: &mut Vec<u8>,
+        ) -> io::Result<()> {
             if let Some(p) = pipe.as_mut() {
                 p.read_to_end(buf).await?;
             }
             Ok(())
         }
 
-        async fn read_stderr_pipe(pipe: &mut Option<tokio::process::ChildStderr>, buf: &mut Vec<u8>) -> io::Result<()> {
+        async fn read_stderr_pipe(
+            pipe: &mut Option<tokio::process::ChildStderr>,
+            buf: &mut Vec<u8>,
+        ) -> io::Result<()> {
             if let Some(p) = pipe.as_mut() {
                 p.read_to_end(buf).await?;
             }
@@ -462,10 +465,7 @@ impl ForgeCommandExecutorService {
             exit_code: Some(exit_code),
         };
 
-        tracing::debug!(
-            exit_code = output.exit_code,
-            "Sandbox command executed"
-        );
+        tracing::debug!(exit_code = output.exit_code, "Sandbox command executed");
 
         Ok(output)
     }
@@ -491,7 +491,8 @@ impl ForgeCommandExecutorService {
         }
 
         // Sandbox is not enabled - use normal execution
-        self.execute_normal(command, working_dir, silent, env_vars).await
+        self.execute_normal(command, working_dir, silent, env_vars)
+            .await
     }
 
     /// Normal execution path without sandbox (used when sandbox is disabled or for fallbacks)
@@ -878,8 +879,11 @@ mod tests {
 
     // ==================== Sandbox Integration Tests ====================
 
-    use ai_sandbox::{SandboxCommand, SandboxManager, SandboxPolicy, SandboxExecRequest};
-    use forge_config::{SandboxConfig, PermissionMode, ShellSandboxConfig, FilesystemSandboxConfig, NetworkSandboxConfig};
+    use ai_sandbox::{SandboxCommand, SandboxExecRequest, SandboxManager, SandboxPolicy};
+    use forge_config::{
+        FilesystemSandboxConfig, NetworkSandboxConfig, PermissionMode, SandboxConfig,
+        ShellSandboxConfig,
+    };
     use std::collections::HashMap;
     use std::ffi::OsString;
 
@@ -934,7 +938,10 @@ mod tests {
 
         // Create execution request - this should work on all platforms
         let exec_request = manager.create_exec_request(command, policy);
-        assert!(exec_request.is_ok(), "Failed to create sandbox exec request");
+        assert!(
+            exec_request.is_ok(),
+            "Failed to create sandbox exec request"
+        );
     }
 
     #[tokio::test]
@@ -944,12 +951,7 @@ mod tests {
         let cmd = "echo 'sandbox disabled'";
 
         let actual = fixture
-            .execute_command(
-                cmd.to_string(),
-                PathBuf::new().join("."),
-                false,
-                None,
-            )
+            .execute_command(cmd.to_string(), PathBuf::new().join("."), false, None)
             .await
             .unwrap();
 
@@ -961,16 +963,12 @@ mod tests {
     async fn test_sandbox_config_enabled_but_no_shell_config() {
         // When sandbox is enabled but no shell config, should use default policy
         let sandbox_config = SandboxConfig::default();
-        let fixture = ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
         let cmd = "echo 'sandbox enabled'";
 
         let actual = fixture
-            .execute_command(
-                cmd.to_string(),
-                PathBuf::new().join("."),
-                false,
-                None,
-            )
+            .execute_command(cmd.to_string(), PathBuf::new().join("."), false, None)
             .await
             .unwrap();
 
@@ -995,16 +993,12 @@ mod tests {
             });
         }
 
-        let fixture = ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
         let cmd = "echo 'allowed command test'";
 
         let actual = fixture
-            .execute_command(
-                cmd.to_string(),
-                PathBuf::new().join("."),
-                false,
-                None,
-            )
+            .execute_command(cmd.to_string(), PathBuf::new().join("."), false, None)
             .await
             .unwrap();
 
@@ -1021,17 +1015,13 @@ mod tests {
             shell.enabled = true;
         }
 
-        let fixture = ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
         let cmd = "echo 'degradation test'";
 
         // Should either succeed with sandbox or gracefully degrade to normal execution
         let result = fixture
-            .execute_command(
-                cmd.to_string(),
-                PathBuf::new().join("."),
-                false,
-                None,
-            )
+            .execute_command(cmd.to_string(), PathBuf::new().join("."), false, None)
             .await;
 
         // Result should be Ok (sandbox or normal execution succeeded)
@@ -1052,9 +1042,10 @@ mod tests {
         // Test Whitelist mode configuration
         let mut sandbox_config = SandboxConfig::default();
         sandbox_config.permission_mode = PermissionMode::Whitelist;
-        
-        let fixture = ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
-        
+
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+
         // In whitelist mode with no allowed commands, most should be blocked
         // But we expect graceful degradation to normal execution
         let result = fixture
@@ -1065,7 +1056,7 @@ mod tests {
                 None,
             )
             .await;
-        
+
         // Should either be blocked by policy or gracefully degrade
         assert!(result.is_ok());
     }
@@ -1077,9 +1068,10 @@ mod tests {
             permission_mode: PermissionMode::Greylist,
             ..Default::default()
         };
-        
-        let fixture = ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
-        
+
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+
         // Greylist should allow most commands but prompt for dangerous ones
         let result = fixture
             .execute_command(
@@ -1089,7 +1081,7 @@ mod tests {
                 None,
             )
             .await;
-        
+
         assert!(result.is_ok());
     }
 
@@ -1097,19 +1089,19 @@ mod tests {
     async fn test_permission_mode_enum_serialization() {
         // Test that PermissionMode can be serialized and deserialized
         use serde_json;
-        
+
         // Test Blacklist
         let json = serde_json::to_string(&PermissionMode::Blacklist).unwrap();
         assert!(json.contains("blacklist"));
         let parsed: PermissionMode = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, PermissionMode::Blacklist);
-        
+
         // Test Whitelist
         let json = serde_json::to_string(&PermissionMode::Whitelist).unwrap();
         assert!(json.contains("whitelist"));
         let parsed: PermissionMode = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, PermissionMode::Whitelist);
-        
+
         // Test Greylist
         let json = serde_json::to_string(&PermissionMode::Greylist).unwrap();
         assert!(json.contains("greylist"));
@@ -1127,12 +1119,9 @@ mod tests {
             timeout_secs: 60,
             working_directory: Some("/tmp".to_string()),
         };
-        
-        let sandbox_config = SandboxConfig {
-            shell: Some(shell_config),
-            ..Default::default()
-        };
-        
+
+        let sandbox_config = SandboxConfig { shell: Some(shell_config), ..Default::default() };
+
         assert!(sandbox_config.shell.is_some());
         let shell = sandbox_config.shell.unwrap();
         assert_eq!(shell.allowed_commands, vec!["echo"]);
@@ -1151,12 +1140,9 @@ mod tests {
             allow_write: true,
             allow_delete: false,
         };
-        
-        let sandbox_config = SandboxConfig {
-            filesystem: Some(fs_config),
-            ..Default::default()
-        };
-        
+
+        let sandbox_config = SandboxConfig { filesystem: Some(fs_config), ..Default::default() };
+
         assert!(sandbox_config.filesystem.is_some());
         let fs = sandbox_config.filesystem.unwrap();
         assert!(fs.allow_read);
@@ -1174,12 +1160,9 @@ mod tests {
             allow_http: true,
             allow_https: true,
         };
-        
-        let sandbox_config = SandboxConfig {
-            network: Some(net_config),
-            ..Default::default()
-        };
-        
+
+        let sandbox_config = SandboxConfig { network: Some(net_config), ..Default::default() };
+
         assert!(sandbox_config.network.is_some());
         let net = sandbox_config.network.unwrap();
         assert!(net.allow_https);
@@ -1192,13 +1175,10 @@ mod tests {
             permission_mode: PermissionMode::Blacklist,
             ..Default::default()
         };
-        
-        let fixture = ForgeCommandExecutorService::new(
-            test_env(), 
-            test_printer(), 
-            Some(sandbox_config)
-        );
-        
+
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+
         let policy = fixture.build_sandbox_policy();
         // Blacklist mode should use default policy
         assert!(std::mem::size_of_val(&policy) > 0);
@@ -1211,13 +1191,10 @@ mod tests {
             permission_mode: PermissionMode::Whitelist,
             ..Default::default()
         };
-        
-        let fixture = ForgeCommandExecutorService::new(
-            test_env(), 
-            test_printer(), 
-            Some(sandbox_config)
-        );
-        
+
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+
         let policy = fixture.build_sandbox_policy();
         assert!(std::mem::size_of_val(&policy) > 0);
     }
@@ -1229,13 +1206,10 @@ mod tests {
             permission_mode: PermissionMode::Blacklist,
             ..Default::default()
         };
-        
-        let fixture = ForgeCommandExecutorService::new(
-            test_env(), 
-            test_printer(), 
-            Some(sandbox_config)
-        );
-        
+
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+
         // Safe command should pass in blacklist mode
         let result = fixture.validate_command_policy("echo 'test'", &SandboxPolicy::default());
         // Should either pass or gracefully fail
@@ -1249,13 +1223,10 @@ mod tests {
             permission_mode: PermissionMode::Blacklist,
             ..Default::default()
         };
-        
-        let fixture = ForgeCommandExecutorService::new(
-            test_env(), 
-            test_printer(), 
-            Some(sandbox_config)
-        );
-        
+
+        let fixture =
+            ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
+
         // Dangerous commands in blacklist mode should be checked
         let result = fixture.validate_command_policy("rm -rf /", &SandboxPolicy::default());
         // Result depends on policy implementation
