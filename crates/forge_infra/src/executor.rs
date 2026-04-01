@@ -479,6 +479,7 @@ impl ForgeCommandExecutorService {
         env_vars: Option<Vec<String>>,
     ) -> anyhow::Result<CommandOutput> {
         // Check if sandbox is enabled and use sandbox execution
+        #[allow(clippy::collapsible_if)]
         if let Some(ref sandbox_config) = self.sandbox_config {
             if sandbox_config.enabled {
                 if self.sandbox_manager.is_some() {

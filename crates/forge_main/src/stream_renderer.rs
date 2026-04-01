@@ -91,7 +91,6 @@ impl<P: ConsoleWriter> SharedSpinner<P> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use std::sync::Arc;
     use std::time::Duration;
 
