@@ -235,4 +235,103 @@ mod tests {
         assert_eq!(title.category, Category::Action);
         assert_eq!(title.timestamp, timestamp);
     }
+
+    /// Test: Duplicate messages cannot be distinguished
+    ///
+    /// This test demonstrates that the current ChatResponse implementation
+    /// lacks unique message identifiers, making it impossible to detect
+    /// duplicate messages. This is a root cause of the duplicate output bug.
+    #[test]
+    fn test_chat_response_lacks_unique_id_for_deduplication() {
+        // Create two messages with identical content
+        let content = ChatResponseContent::Markdown {
+            text: "I should think step by step".to_string(),
+            partial: false,
+        };
+
+        let msg1 = ChatResponse::TaskMessage { content: content.clone() };
+        let msg2 = ChatResponse::TaskMessage { content };
+
+        // Current behavior: Two messages with same content are equal
+        // This makes it impossible to distinguish between original and duplicate
+        // Using debug format to compare since PartialEq is not derived
+        let msg1_debug = format!("{:?}", msg1);
+        let msg2_debug = format!("{:?}", msg2);
+        assert_eq!(
+            msg1_debug, msg2_debug,
+            "Messages with same content are equal"
+        );
+
+        // Problem: There's no way to track if msg2 is a duplicate of msg1
+        // A proper fix would add a unique message_id field to ChatResponse
+    }
+
+    /// Test: TaskReasoning messages can be duplicated
+    ///
+    /// This test demonstrates that TaskReasoning messages (which include
+    /// "I should think step by step") can be sent multiple times without
+    /// any way to detect or prevent the duplication.
+    #[test]
+    fn test_task_reasoning_can_be_duplicated() {
+        let reasoning_content = "I should think step by step".to_string();
+
+        // Simulate the same reasoning being sent multiple times
+        let messages: Vec<ChatResponse> = (0..3)
+            .map(|_| ChatResponse::TaskReasoning { content: reasoning_content.clone() })
+            .collect();
+
+        // All messages have the same debug representation - no way to detect duplication
+        let first_debug = format!("{:?}", messages[0]);
+        for msg in &messages[1..] {
+            let debug = format!("{:?}", msg);
+            assert_eq!(
+                first_debug, debug,
+                "All reasoning messages have same content"
+            );
+        }
+
+        // With a unique ID, we could track and deduplicate
+        // let unique_ids: HashSet<_> = messages.iter().map(|m| m.id()).collect();
+        // assert_eq!(unique_ids.len(), 1, "Should have only one unique message");
+    }
+
+    /// Test: Demonstrate the need for message deduplication in streams
+    ///
+    /// This test simulates a scenario where the same message might be
+    /// processed multiple times in a stream, causing duplicate output.
+    #[test]
+    fn test_stream_needs_deduplication() {
+        // Simulate messages that might be duplicated in a stream
+        let original_content = ChatResponseContent::Markdown {
+            text: "I should think step by step".to_string(),
+            partial: false,
+        };
+
+        let messages = [
+            ChatResponse::TaskMessage { content: original_content.clone() },
+            ChatResponse::TaskMessage { content: original_content.clone() },
+            ChatResponse::TaskComplete,
+            ChatResponse::TaskMessage { content: original_content.clone() }, // Duplicate
+        ];
+
+        // Current: No way to filter duplicates based on unique IDs
+        let task_messages: Vec<_> = messages
+            .iter()
+            .filter(|m| matches!(m, ChatResponse::TaskMessage { .. }))
+            .collect();
+
+        // We get 3 task messages, but can't tell which are duplicates
+        assert_eq!(
+            task_messages.len(),
+            3,
+            "Cannot filter duplicates without unique IDs"
+        );
+
+        // Desired behavior with unique IDs:
+        // let seen_ids = HashSet::new();
+        // let unique: Vec<_> = messages
+        //     .into_iter()
+        //     .filter(|m| seen_ids.insert(m.id()))
+        //     .collect();
+    }
 }

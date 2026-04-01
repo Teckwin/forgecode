@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::reader::ConfigReader;
 use crate::writer::ConfigWriter;
-use crate::{AutoDumpFormat, Compact, Decimal, HttpConfig, ModelConfig, RetryConfig, Update};
+use crate::{
+    AutoDumpFormat, Compact, Decimal, HttpConfig, ModelConfig, RetryConfig, SandboxConfig, Update,
+};
 
 /// Top-level Forge configuration merged from all sources (defaults, file,
 /// environment).
@@ -66,6 +68,9 @@ pub struct ForgeConfig {
     pub max_parallel_file_reads: usize,
     /// TTL in seconds for the model API list cache
     pub model_cache_ttl_secs: u64,
+    /// Sandbox security configuration for tool execution
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxConfig>,
     /// Default model and provider configuration used when not overridden by
     /// individual agents.    
     #[serde(default)]
@@ -125,6 +130,35 @@ pub struct ForgeConfig {
     pub tool_supported: bool,
 }
 
+impl ForgeConfig {
+    /// Reads and merges configuration from all sources, returning the resolved
+    /// [`ForgeConfig`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the config path cannot be resolved, the file cannot
+    /// be read, or deserialization fails.
+    pub fn read() -> crate::Result<ForgeConfig> {
+        ConfigReader::default()
+            .read_defaults()
+            .read_legacy()
+            .read_global()
+            .read_env()
+            .build()
+    }
+
+    /// Writes the configuration to the user config file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration cannot be serialized or written to
+    /// disk.
+    pub fn write(&self) -> crate::Result<()> {
+        let path = ConfigReader::config_path();
+        ConfigWriter::new(self.clone()).write(&path)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -165,34 +199,5 @@ mod tests {
         let actual = ConfigReader::default().read_toml(&toml).build().unwrap();
 
         assert_eq!(actual.temperature, fixture.temperature);
-    }
-}
-
-impl ForgeConfig {
-    /// Reads and merges configuration from all sources, returning the resolved
-    /// [`ForgeConfig`].
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the config path cannot be resolved, the file cannot
-    /// be read, or deserialization fails.
-    pub fn read() -> crate::Result<ForgeConfig> {
-        ConfigReader::default()
-            .read_defaults()
-            .read_legacy()
-            .read_global()
-            .read_env()
-            .build()
-    }
-
-    /// Writes the configuration to the user config file.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the configuration cannot be serialized or written to
-    /// disk.
-    pub fn write(&self) -> crate::Result<()> {
-        let path = ConfigReader::config_path();
-        ConfigWriter::new(self.clone()).write(&path)
     }
 }

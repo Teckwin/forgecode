@@ -79,6 +79,7 @@ impl ForgeInfra {
             command_executor_service: Arc::new(ForgeCommandExecutorService::new(
                 env.clone(),
                 output_printer.clone(),
+                env.sandbox_config.clone(),
             )),
             inquire_service: Arc::new(ForgeInquire::new()),
             mcp_server: ForgeMcpServer,

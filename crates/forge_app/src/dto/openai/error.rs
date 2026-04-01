@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, derive_more::From, Error)]
+#[allow(clippy::large_enum_variant)]
 pub enum Error {
     #[error("{0}")]
     Response(ErrorResponse),
@@ -15,6 +16,7 @@ pub enum Error {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum ErrorCode {
     String(String),
     Number(u16),

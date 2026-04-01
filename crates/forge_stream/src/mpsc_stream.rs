@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::time::Duration;
 
 use futures::Stream;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -10,6 +11,10 @@ pub struct MpscStream<T> {
 }
 
 impl<T> MpscStream<T> {
+    /// Spawns a new async task that produces values sent through a channel.
+    ///
+    /// The provided function receives a `Sender` and returns a `Future` that
+    /// will be executed in a spawned task.
     pub fn spawn<F, S>(f: F) -> MpscStream<T>
     where
         F: (FnOnce(Sender<T>) -> S) + Send + 'static,
@@ -17,6 +22,53 @@ impl<T> MpscStream<T> {
     {
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         MpscStream { join_handle: tokio::spawn(f(tx)), receiver: rx }
+    }
+
+    /// Creates a new MpscStream from an existing sender and receiver pair.
+    /// This allows for more flexible composition of streams.
+    pub fn new(receiver: Receiver<T>, join_handle: JoinHandle<()>) -> Self {
+        Self { join_handle, receiver }
+    }
+
+    /// Returns a reference to the receiver, allowing inspection of the channel state.
+    pub fn receiver(&self) -> &Receiver<T> {
+        &self.receiver
+    }
+
+    /// Checks if the underlying task is still running.
+    pub fn is_running(&self) -> bool {
+        !self.join_handle.is_finished()
+    }
+
+    /// Waits for the underlying task to complete with a timeout.
+    ///
+    /// Returns `true` if the task completed normally, `false` if it was aborted or timed out.
+    pub async fn wait_for_completion(&mut self, timeout: Duration) -> bool {
+        tokio::time::timeout(timeout, &mut self.join_handle)
+            .await
+            .is_ok()
+    }
+
+    /// Gracefully shuts down the stream, waiting for the task to complete.
+    ///
+    /// This method:
+    /// 1. Closes the receiver to signal the task to stop
+    /// 2. Waits for the task to complete (with a reasonable timeout)
+    /// 3. Falls back to aborting if the timeout expires
+    ///
+    /// The default timeout is 1 second.
+    pub async fn graceful_shutdown(&mut self) {
+        // Close the receiver first to signal the task to stop
+        self.receiver.close();
+
+        // Wait for the task to complete gracefully
+        let timeout = Duration::from_secs(1);
+        let completed = tokio::time::timeout(timeout, &mut self.join_handle).await;
+
+        // If timeout expired, abort the task
+        if completed.is_err() {
+            self.join_handle.abort();
+        }
     }
 }
 
@@ -35,6 +87,16 @@ impl<T> Drop for MpscStream<T> {
     fn drop(&mut self) {
         // Close the receiver to prevent any new messages
         self.receiver.close();
+
+        // Try to wait for graceful shutdown, but don't block indefinitely
+        // Use a non-blocking approach - check if task is finished, if not abort
+        if self.join_handle.is_finished() {
+            // Task already completed, no need to abort
+            return;
+        }
+
+        // Task is still running - abort it
+        // This is a safe fallback since we've closed the receiver
         self.join_handle.abort();
     }
 }
