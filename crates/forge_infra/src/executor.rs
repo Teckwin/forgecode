@@ -1024,10 +1024,7 @@ mod tests {
         // Test that when sandbox fails, execution falls back to normal mode
         let sandbox_config = SandboxConfig {
             enabled: true,
-            shell: Some(forge_config::ShellSandboxConfig {
-                enabled: true,
-                ..Default::default()
-            }),
+            shell: Some(forge_config::ShellSandboxConfig { enabled: true, ..Default::default() }),
             ..Default::default()
         };
 
