@@ -47,7 +47,7 @@ http.workspace = true
 url.workspace = true
 tonic.workspace = true
 google-cloud-auth.workspace = true
-ai-sandbox = "0.1.5"
+ai-sandbox = "0.1.8"
 forge-sandbox = "0.5.0"
 
 [dev-dependencies]
