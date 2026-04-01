@@ -307,7 +307,7 @@ mod tests {
             partial: false,
         };
 
-        let messages = vec![
+        let messages = [
             ChatResponse::TaskMessage { content: original_content.clone() },
             ChatResponse::TaskMessage { content: original_content.clone() },
             ChatResponse::TaskComplete,

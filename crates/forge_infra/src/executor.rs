@@ -1022,11 +1022,14 @@ mod tests {
     #[tokio::test]
     async fn test_sandbox_graceful_degradation() {
         // Test that when sandbox fails, execution falls back to normal mode
-        let mut sandbox_config = SandboxConfig::default();
-        sandbox_config.enabled = true;
-        if let Some(shell) = sandbox_config.shell.as_mut() {
-            shell.enabled = true;
-        }
+        let sandbox_config = SandboxConfig {
+            enabled: true,
+            shell: Some(forge_config::ShellSandboxConfig {
+                enabled: true,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
 
         let fixture =
             ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
@@ -1053,8 +1056,10 @@ mod tests {
     #[tokio::test]
     async fn test_permission_mode_whitelist() {
         // Test Whitelist mode configuration
-        let mut sandbox_config = SandboxConfig::default();
-        sandbox_config.permission_mode = PermissionMode::Whitelist;
+        let sandbox_config = SandboxConfig {
+            permission_mode: PermissionMode::Whitelist,
+            ..Default::default()
+        };
 
         let fixture =
             ForgeCommandExecutorService::new(test_env(), test_printer(), Some(sandbox_config));
