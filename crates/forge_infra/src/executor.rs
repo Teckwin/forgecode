@@ -544,6 +544,7 @@ impl ForgeCommandExecutorService {
     }
 
     /// Direct execution without sandbox check (used for internal commands when sandbox is enabled)
+    #[allow(dead_code)]
     async fn execute_direct(
         &self,
         command: String,

@@ -15,6 +15,7 @@ pub enum Error {
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum ErrorCode {
     String(String),
     Number(u16),
