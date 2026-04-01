@@ -880,6 +880,7 @@ mod tests {
 
     // ==================== Sandbox Integration Tests ====================
 
+    #[allow(unused_imports)]
     use ai_sandbox::{SandboxCommand, SandboxExecRequest, SandboxManager, SandboxPolicy};
     use forge_config::{
         FilesystemSandboxConfig, NetworkSandboxConfig, PermissionMode, SandboxConfig,
