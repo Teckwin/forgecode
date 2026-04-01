@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use forge_domain::{CodebaseQueryResult, ToolCallContext, ToolCatalog, ToolOutput};
+use forge_domain::{CodebaseQueryResult, ToolCallContext, ToolCatalog, ToolKind, ToolOutput};
 
 use crate::fmt::content::FormatContent;
 use crate::operation::{TempContentFiles, ToolOperation};
@@ -13,6 +13,20 @@ use crate::{
     ImageReadService, NetFetchService, PlanCreateService, ProviderService, SkillFetchService,
     WorkspaceService,
 };
+
+/// Result of path safety check
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum PathSafety {
+    /// Path is safe to access within working directory
+    Safe,
+    /// Path is outside working directory - requires user confirmation
+    RequiresConfirmation,
+    /// Path is outside working directory and operation is write/delete - requires double confirmation
+    RequiresDoubleConfirmation,
+    /// Operation is denied
+    Denied(String),
+}
 
 pub struct ToolExecutor<S> {
     services: Arc<S>,
@@ -41,6 +55,53 @@ impl<
 {
     pub fn new(services: Arc<S>) -> Self {
         Self { services }
+    }
+
+    /// Checks if a path is safe to access based on sandbox rules:
+    /// - Within working directory: Safe
+    /// - Outside working directory:
+    ///   - Read: Requires confirmation
+    ///   - Write/Delete: Requires double confirmation
+    fn check_path_safety(&self, path: &str, tool_kind: &ToolKind) -> PathSafety {
+        let env = self.services.get_environment();
+        let cwd = &env.cwd;
+        let path_buf = PathBuf::from(path);
+
+        // Normalize the path to absolute
+        let absolute_path = if path_buf.is_absolute() {
+            path_buf.clone()
+        } else {
+            cwd.join(path_buf)
+        };
+
+        // Check if path is within working directory
+        if absolute_path.starts_with(cwd) {
+            return PathSafety::Safe;
+        }
+
+        // Path is outside working directory
+        // Determine the required confirmation level based on tool type
+        match tool_kind {
+            // Read operations require single confirmation
+            ToolKind::Read | ToolKind::FsSearch | ToolKind::SemSearch | ToolKind::TodoRead => {
+                PathSafety::RequiresConfirmation
+            }
+            // Write, delete, patch, undo require double confirmation
+            ToolKind::Write | ToolKind::Remove | ToolKind::Patch | ToolKind::Undo => {
+                PathSafety::RequiresDoubleConfirmation
+            }
+            // Shell commands with external cwd also require double confirmation
+            ToolKind::Shell => {
+                // Only require confirmation if the cwd is outside working directory
+                if absolute_path.starts_with(cwd) {
+                    PathSafety::Safe
+                } else {
+                    PathSafety::RequiresDoubleConfirmation
+                }
+            }
+            // Other tools (Fetch, Followup, Plan, Skill, TodoWrite) are not file-based
+            _ => PathSafety::Safe,
+        }
     }
 
     fn require_prior_read(
@@ -326,6 +387,9 @@ impl<
         let tool_kind = tool_input.kind();
         let env = self.services.get_environment();
 
+        // Enforce path safety check for file operations outside working directory
+        self.enforce_path_safety(&tool_input)?;
+
         // Enforce read-before-edit for patch
         if let ToolCatalog::Patch(input) = &tool_input {
             self.require_prior_read(context, &input.file_path, "edit it")?;
@@ -356,5 +420,57 @@ impl<
         context.with_metrics(|metrics| {
             operation.into_tool_output(tool_kind, truncation_path, &env, metrics)
         })
+    }
+
+    /// Enforces path safety rules for file operations
+    fn enforce_path_safety(&self, tool_input: &ToolCatalog) -> anyhow::Result<()> {
+        let tool_kind = tool_input.kind();
+
+        // Extract path from tool input
+        let path = match tool_input {
+            ToolCatalog::Read(input) => Some(input.file_path.as_str()),
+            ToolCatalog::Write(input) => Some(input.file_path.as_str()),
+            ToolCatalog::FsSearch(input) => input.path.as_deref(),
+            ToolCatalog::SemSearch(_) => None,
+            ToolCatalog::Remove(input) => Some(input.path.as_str()),
+            ToolCatalog::Patch(input) => Some(input.file_path.as_str()),
+            ToolCatalog::Undo(input) => Some(input.path.as_str()),
+            ToolCatalog::Shell(input) => input.cwd.as_ref().map(|p| p.to_str().unwrap_or("")),
+            _ => None,
+        };
+
+        // If no path to check, skip safety check
+        let Some(path) = path else {
+            return Ok(());
+        };
+
+        // Skip empty paths
+        if path.is_empty() {
+            return Ok(());
+        }
+
+        let safety = self.check_path_safety(path, &tool_kind);
+
+        match safety {
+            PathSafety::Safe => Ok(()),
+            PathSafety::RequiresConfirmation => {
+                // Log warning for read operations outside cwd
+                tracing::warn!(
+                    "Tool {} is accessing path outside working directory: {}. Allowing but logging warning.",
+                    tool_kind,
+                    path
+                );
+                Ok(())
+            }
+            PathSafety::RequiresDoubleConfirmation => {
+                // Deny write/delete operations outside cwd - requires user confirmation which is not implemented
+                Err(anyhow!(
+                    "Tool {} is attempting to modify path outside working directory: {}. This operation is not allowed for security reasons. Please work within the current working directory.",
+                    tool_kind,
+                    path
+                ))
+            }
+            PathSafety::Denied(reason) => Err(anyhow!(reason)),
+        }
     }
 }
