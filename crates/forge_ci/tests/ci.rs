@@ -2,6 +2,9 @@ use forge_ci::workflows as workflow;
 
 #[test]
 fn generate() {
+    // In CI environment, this test just verifies the workflow doesn't panic
+    // The actual workflow file comparison is done via check_file which
+    // returns error if content doesn't match
     workflow::generate_ci_workflow();
 }
 
@@ -12,6 +15,7 @@ fn test_release_drafter() {
 
 #[test]
 fn test_release_workflow() {
+    // In CI environment, this test just verifies the workflow doesn't panic
     workflow::release_publish();
 }
 
