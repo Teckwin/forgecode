@@ -1,5 +1,6 @@
 use anyhow::Context as _;
 use tokio_stream::StreamExt;
+use uuid::Uuid;
 
 use crate::reasoning::{Reasoning, ReasoningFull};
 use crate::{
@@ -107,12 +108,14 @@ impl ResultStreamExt<anyhow::Error> for crate::BoxStream<ChatCompletionMessage, 
 
                 // Stream content delta if sender is available
                 if let Some(ref sender) = sender {
+                    let message_id = Uuid::new_v4();
                     if let Some(reasoning_part) = message.reasoning.as_ref() {
                         let delta = reasoning_part.as_str();
                         if !delta.is_empty() {
                             // Ignore send errors - the receiver may have been dropped
                             let _ = sender
                                 .send(Ok(ChatResponse::TaskReasoning {
+                                    message_id,
                                     content: delta.to_string(),
                                 }))
                                 .await;
@@ -125,6 +128,7 @@ impl ResultStreamExt<anyhow::Error> for crate::BoxStream<ChatCompletionMessage, 
                             // Ignore send errors - the receiver may have been dropped
                             let _ = sender
                                 .send(Ok(ChatResponse::TaskMessage {
+                                    message_id,
                                     content: ChatResponseContent::Markdown {
                                         text: delta.to_string(),
                                         partial: true,
@@ -613,7 +617,7 @@ mod tests {
                     content: ChatResponseContent::Markdown { text, partial: true },
                     ..
                 } => content_deltas.push(text),
-                ChatResponse::TaskReasoning { content } => reasoning_deltas.push(content),
+                ChatResponse::TaskReasoning { content, .. } => reasoning_deltas.push(content),
                 _ => {}
             }
         }

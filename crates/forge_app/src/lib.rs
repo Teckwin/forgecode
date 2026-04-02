@@ -49,6 +49,7 @@ pub use infra::*;
 pub use services::*;
 pub use template_engine::*;
 pub use tool_resolver::*;
+pub use transformers::ChatResponseDeduplicator;
 pub use user::*;
 pub use utils::{compute_hash, is_binary_content_type};
 pub use walker::*;

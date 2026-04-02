@@ -7,7 +7,9 @@ use derive_setters::Setters;
 use forge_domain::{Agent, *};
 use forge_template::Element;
 use tokio::sync::Notify;
+use tokio::time::{Duration as TokioDuration, timeout};
 use tracing::warn;
+use uuid::Uuid;
 
 use crate::TemplateEngine;
 use crate::agent::AgentService;
@@ -73,6 +75,7 @@ impl<S: AgentService> Orchestrator<S> {
             if is_system_tool {
                 let notifier = Arc::new(Notify::new());
                 self.send(ChatResponse::ToolCallStart {
+                    message_id: Uuid::new_v4(),
                     tool_call: tool_call.clone(),
                     notifier: notifier.clone(),
                 })
@@ -93,11 +96,27 @@ impl<S: AgentService> Orchestrator<S> {
                 .handle(&toolcall_start_event, &mut self.conversation)
                 .await?;
 
-            // Execute the tool
-            let tool_result = self
-                .services
-                .call(&self.agent, tool_context, tool_call.clone())
-                .await;
+            // Execute the tool with timeout
+            let timeout_duration = tool_context.timeout().unwrap_or(TokioDuration::MAX);
+            let call_result = timeout(
+                timeout_duration,
+                self.services
+                    .call(&self.agent, tool_context, tool_call.clone()),
+            )
+            .await;
+
+            let tool_result = match call_result {
+                Ok(result) => result,
+                Err(elapsed) => {
+                    tracing::warn!("Tool call timed out after {:?}", elapsed);
+                    ToolResult::new(tool_call.name.clone())
+                        .call_id(tool_call.call_id.clone())
+                        .output(Err(anyhow::anyhow!(
+                            "Tool call timed out after {:?}",
+                            elapsed
+                        )))
+                }
+            };
 
             // Fire the ToolcallEnd lifecycle event (fires on both success and failure)
             let toolcall_end_event = LifecycleEvent::ToolcallEnd(EventData::new(
@@ -316,6 +335,7 @@ impl<S: AgentService> Orchestrator<S> {
 
             if self.error_tracker.limit_reached() {
                 self.send(ChatResponse::Interrupt {
+                    message_id: Uuid::new_v4(),
                     reason: InterruptionReason::MaxToolFailurePerTurnLimitReached {
                         limit: *self.error_tracker.limit() as u64,
                         errors: self.error_tracker.errors().clone(),
@@ -345,6 +365,7 @@ impl<S: AgentService> Orchestrator<S> {
                     );
                     // raise an interrupt event to notify the UI
                     self.send(ChatResponse::Interrupt {
+                        message_id: Uuid::new_v4(),
                         reason: InterruptionReason::MaxRequestPerTurnLimitReached {
                             limit: max_request_allowed as u64,
                         },

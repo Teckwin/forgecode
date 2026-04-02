@@ -78,7 +78,7 @@ impl<S: Services> AgentExecutor<S> {
                 output.clear();
             }
             match message {
-                ChatResponse::TaskMessage { ref content } => match content {
+                ChatResponse::TaskMessage { ref content, .. } => match content {
                     ChatResponseContent::ToolInput(_) => ctx.send(message).await?,
                     ChatResponseContent::ToolOutput(_) => {}
                     ChatResponseContent::Markdown { text, partial } => {
@@ -94,7 +94,7 @@ impl<S: Services> AgentExecutor<S> {
                 ChatResponse::ToolCallStart { .. } => ctx.send(message).await?,
                 ChatResponse::ToolCallEnd(_) => ctx.send(message).await?,
                 ChatResponse::RetryAttempt { .. } => ctx.send(message).await?,
-                ChatResponse::Interrupt { reason } => {
+                ChatResponse::Interrupt { reason, .. } => {
                     return Err(Error::AgentToolInterrupted(reason))
                         .context(format!(
                             "Tool call to '{}' failed.\n\
