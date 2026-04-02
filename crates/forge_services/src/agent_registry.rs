@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use dashmap::DashMap;
 use forge_app::domain::AgentId;
-use forge_app::{AgentRepository, EnvironmentInfra};
+use forge_app::{AgentRepository, AgentRepositoryExt, EnvironmentInfra};
 use forge_domain::{Agent, ProviderRepository};
 use tokio::sync::RwLock;
 
@@ -12,6 +12,10 @@ use tokio::sync::RwLock;
 pub struct ForgeAgentRegistryService<R> {
     // Infrastructure dependency for loading agent definitions
     repository: Arc<R>,
+
+    // Optional extended repository for dynamic create/delete operations
+    // This allows backward compatibility when the extended traits are not available
+    ext_repository: Option<Arc<dyn AgentRepositoryExt>>,
 
     // In-memory storage for agents keyed by AgentId string
     // Lazily initialized on first access
@@ -27,6 +31,17 @@ impl<R> ForgeAgentRegistryService<R> {
     pub fn new(repository: Arc<R>) -> Self {
         Self {
             repository,
+            ext_repository: None,
+            agents: RwLock::new(None),
+            active_agent_id: RwLock::new(None),
+        }
+    }
+
+    /// Creates a new AgentRegistryService with both base and extended repository
+    pub fn with_ext(repository: Arc<R>, ext_repository: Arc<dyn AgentRepositoryExt>) -> Self {
+        Self {
+            repository,
+            ext_repository: Some(ext_repository),
             agents: RwLock::new(None),
             active_agent_id: RwLock::new(None),
         }
@@ -135,5 +150,29 @@ impl<R: AgentRepository + EnvironmentInfra + ProviderRepository> forge_app::Agen
 
         self.ensure_agents_loaded().await?;
         Ok(())
+    }
+
+    async fn create_agent(&self, agent: Agent) -> anyhow::Result<()> {
+        // Use the extended repository if available, otherwise return an error
+        if let Some(ext) = &self.ext_repository {
+            ext.create_agent(agent).await
+        } else {
+            anyhow::bail!(
+                "Dynamic agent creation is not available. \
+                Please ensure the infrastructure supports AgentRepositoryExt."
+            )
+        }
+    }
+
+    async fn delete_agent(&self, agent_id: &AgentId) -> anyhow::Result<()> {
+        // Use the extended repository if available, otherwise return an error
+        if let Some(ext) = &self.ext_repository {
+            ext.delete_agent(agent_id.as_str()).await
+        } else {
+            anyhow::bail!(
+                "Dynamic agent deletion is not available. \
+                Please ensure the infrastructure supports AgentRepositoryExt."
+            )
+        }
     }
 }

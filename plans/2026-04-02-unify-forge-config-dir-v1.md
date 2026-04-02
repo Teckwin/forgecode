@@ -124,13 +124,13 @@
 
 **设计说明**: 现有的 ToolRegistry 已支持 Agent-as-Tool 调用（line 140-152），通过 `join_all` 实现并行执行多个 Agent 任务。Part 2 的核心是扩展此能力以支持更灵活的串行/并行调度策略。
 
-- [ ] 20. **实现 ToolScheduler 调度器**
-  - 在 ToolRegistry 中添加调度策略配置
-  - 支持 sequential（串行）和 parallel（并行）模式
+- [x] 20. **实现 ToolScheduler 调度器**
+  - 在 AgentInput 中添加 strategy 字段
+  - 支持 "parallel"（默认）和 "sequential" 策略
 
 - [x] 21. **扩展 AgentExecutor 支持调度策略**
-  - 现有代码已支持 `join_all` 并行执行 (tool_registry.rs:146-152)
-  - 串行执行通过循环调用实现
+  - 串行执行：循环调用，累积结果
+  - 并行执行：使用 join_all 并发执行
 
 - [ ] 22. **实现 DynamicAgentRegistry**
   - 需要在 AgentRegistry 中添加动态注册方法

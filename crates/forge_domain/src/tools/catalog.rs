@@ -67,6 +67,15 @@ pub struct AgentInput {
     /// requirements to enable the agent to understand and execute the work
     /// accurately.
     pub tasks: Vec<String>,
+    /// Execution strategy for multiple tasks:
+    /// - "parallel" (default): Execute all tasks concurrently
+    /// - "sequential": Execute tasks one by one, passing results to next task
+    #[serde(default = "default_strategy")]
+    pub strategy: String,
+}
+
+fn default_strategy() -> String {
+    "parallel".to_string()
 }
 
 fn default_true() -> bool {

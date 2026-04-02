@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use forge_app::domain::{AgentDefinition, Template};
-use forge_app::{AgentRepository, DirectoryReaderInfra, EnvironmentInfra, FileInfoInfra};
+use forge_app::{
+    AgentRepository, DirectoryReaderInfra, EnvironmentInfra, FileDirectoryInfra, FileInfoInfra,
+    FileRemoverInfra, FileWriterInfra,
+};
 use gray_matter::Matter;
 use gray_matter::engine::YAML;
 
@@ -46,6 +49,74 @@ impl<I: FileInfoInfra + EnvironmentInfra + DirectoryReaderInfra> AgentRepository
     /// resolution.
     async fn get_agents(&self) -> anyhow::Result<Vec<forge_app::domain::AgentDefinition>> {
         self.load_agents().await
+    }
+}
+
+/// Extended implementation for dynamic agent creation/deletion
+/// Requires additional infrastructure traits for file operations
+#[async_trait::async_trait]
+impl<
+    I: FileInfoInfra
+        + EnvironmentInfra
+        + DirectoryReaderInfra
+        + FileWriterInfra
+        + FileRemoverInfra
+        + FileDirectoryInfra,
+> forge_app::AgentRepositoryExt for ForgeAgentRepository<I>
+{
+    /// Create a new agent definition and persist it to the agents directory.
+    async fn create_agent(&self, agent: forge_domain::Agent) -> anyhow::Result<()> {
+        // Determine the target directory: prefer CWD agents directory
+        let env = self.infra.get_environment();
+        let target_dir = env.agent_cwd_path();
+
+        // Ensure the directory exists using FileDirectoryInfra
+        self.infra.create_dirs(&target_dir).await.with_context(|| {
+            format!(
+                "Failed to create agents directory: {}",
+                target_dir.display()
+            )
+        })?;
+
+        // Generate the file path
+        let file_name = format!("{}.md", agent.id.as_str());
+        let file_path = target_dir.join(&file_name);
+
+        // Serialize the agent definition to markdown format
+        let content = serialize_agent_to_markdown(&agent);
+
+        // Write the file using FileWriterInfra (takes Bytes)
+        self.infra
+            .write(&file_path, content.into())
+            .await
+            .with_context(|| format!("Failed to write agent file: {}", file_path.display()))?;
+
+        Ok(())
+    }
+
+    /// Delete an agent by ID from the agents directory.
+    async fn delete_agent(&self, agent_id: &str) -> anyhow::Result<()> {
+        // Check in CWD agents directory first
+        let env = self.infra.get_environment();
+        let cwd_path = env.agent_cwd_path();
+        let cwd_file = cwd_path.join(format!("{}.md", agent_id));
+
+        if self.infra.exists(&cwd_file).await? {
+            self.infra.remove(&cwd_file).await?;
+            return Ok(());
+        }
+
+        // Then check global agents directory
+        let global_path = env.agent_path();
+        let global_file = global_path.join(format!("{}.md", agent_id));
+
+        if self.infra.exists(&global_file).await? {
+            self.infra.remove(&global_file).await?;
+            return Ok(());
+        }
+
+        // Agent not found
+        anyhow::bail!("Agent '{}' not found in agents directory", agent_id)
     }
 }
 
@@ -157,6 +228,90 @@ fn parse_agent_file(content: &str) -> Result<AgentDefinition> {
         .system_prompt(Template::new(result.content));
 
     Ok(agent)
+}
+
+/// Serialize an AgentDefinition to markdown format with YAML frontmatter
+fn serialize_agent_to_markdown(agent: &forge_domain::Agent) -> String {
+    // Build YAML frontmatter
+    let mut yaml_parts = Vec::new();
+
+    // Core fields
+    yaml_parts.push(format!("id: \"{}\"", agent.id));
+    if let Some(title) = &agent.title {
+        yaml_parts.push(format!("title: \"{}\"", title));
+    }
+    if let Some(description) = &agent.description {
+        yaml_parts.push(format!("description: \"{}\"", description));
+    }
+
+    // Reasoning - only serialize if explicitly enabled
+    if let Some(reasoning) = &agent.reasoning
+        && reasoning.enabled.unwrap_or(false)
+    {
+        yaml_parts.push("reasoning:".to_string());
+        yaml_parts.push(format!("  enabled: {}", reasoning.enabled.unwrap_or(false)));
+    }
+
+    // Tools
+    if let Some(tools) = &agent.tools
+        && !tools.is_empty()
+    {
+        yaml_parts.push("tools:".to_string());
+        for tool in tools {
+            yaml_parts.push(format!("  - {}", tool));
+        }
+    }
+
+    // Provider config (agent has provider and model directly)
+    yaml_parts.push("provider_config:".to_string());
+    yaml_parts.push(format!("  provider: {}", agent.provider));
+    yaml_parts.push(format!("  model: {}", agent.model));
+
+    // Compact
+    if agent.compact.retention_window > 0
+        || agent.compact.eviction_window > 0.0
+        || agent.compact.max_tokens.is_some()
+    {
+        yaml_parts.push("compact:".to_string());
+        if agent.compact.retention_window > 0 {
+            yaml_parts.push(format!(
+                "  retention_window: {}",
+                agent.compact.retention_window
+            ));
+        }
+        if agent.compact.eviction_window > 0.0 {
+            yaml_parts.push(format!(
+                "  eviction_window: {}",
+                agent.compact.eviction_window
+            ));
+        }
+        if let Some(max_tokens) = agent.compact.max_tokens {
+            yaml_parts.push(format!("  max_tokens: {}", max_tokens));
+        }
+    }
+
+    // Max turns
+    if let Some(max_turns) = agent.max_turns {
+        yaml_parts.push(format!("max_turns: {}", max_turns));
+    }
+
+    // Max tool failure per turn
+    if let Some(max_tool_failure_per_turn) = agent.max_tool_failure_per_turn {
+        yaml_parts.push(format!(
+            "max_tool_failure_per_turn: {}",
+            max_tool_failure_per_turn
+        ));
+    }
+
+    // Build the markdown
+    let yaml = yaml_parts.join("\n");
+    let system_prompt = agent
+        .system_prompt
+        .as_ref()
+        .map(|s| s.template.as_str())
+        .unwrap_or("");
+
+    format!("---\n{}\n---\n{}", yaml, system_prompt)
 }
 
 #[cfg(test)]
