@@ -48,37 +48,37 @@
 
 ### Part 1: 配置文件统一改造
 
-- [ ] 1. **分析现有配置文件分布情况**
+- [x] 1. **分析现有配置文件分布情况**
   - 梳理当前位于 CWD 根目录的配置文件
   - 明确每个配置文件的作用和依赖关系
   - 确认需要迁移的文件清单
   - 参考: `crates/forge_domain/src/env.rs:275-360`
 
-- [ ] 2. **设计新的 .forge 目录结构**
+- [x] 2. **设计新的 .forge 目录结构**
   - 创建统一的配置文件目录布局
   - 定义新的路径方法
   - 保持与现有 base_path 和 cwd 路径的一致性
 
 - [ ] 3. **设计 setting.yaml 配置结构**
-  - 定义 YAML 配置结构，包含 provider、mcp、tools、system、doctor 等章节
-  - 使用 YAML 格式并添加友好注解
+- [x] 3. **设计 setting.yaml 配置结构**
+  - 定义 YAML 结构（agents、skills、mcp、provider、doctor 等节）
+  - 参考 forge.default.yaml 和 forge.schema.json
+  - 确定必填和可选字段
 
-- [ ] 4. **修改 Environment 路径方法**
-  - 在 env.rs 中新增/修改路径方法
-  - 将 mcp_local_config 从 .mcp.json 迁移到 .forge/setting.yaml
-  - 将 plans_path 从 plans/ 迁移到 .forge/plans/
-  - 添加 setting_path 指向 .forge/setting.yaml
-  - 添加 tools_path 指向 .forge/tools/
+- [x] 4. **修改 Environment 路径方法**
+  - 添加 `setting_path()` 方法返回 `.forge/setting.yaml`
+  - 添加 `tools_path()` 方法返回 `.forge/tools/`
+  - 保留现有路径方法以保持向后兼容
 
-- [ ] 5. **创建 setting.yaml 解析模块**
-  - 在 forge_domain 中创建 SettingConfig 结构
-  - 定义 YAML 解析逻辑，支持所有现有配置项
+- [x] 5. **创建 setting.yaml 解析模块**
+  - 在 forge_domain 中添加 SettingConfig 结构体
+  - 实现 serde_yaml Deserialize
+  - 添加单元测试验证解析逻辑
 
-- [ ] 6. **实现 cargo doctor 命令**
-  - 在 CLI 中添加 doctor 子命令
-  - 检测旧格式配置文件并提供迁移功能
-  - 实现服务健康检查和自动修复功能
-
+- [x] 6. **实现 cargo doctor 命令**
+  - 在 CLI 中添加 doctor-config / dc 子命令
+  - 添加 --fix 和 --verbose 选项
+  - 实现配置检测和修复逻辑
 - [ ] 7. **保留 Agent 独立文件结构**
   - agent_cwd_path 继续指向 .forge/agents/
   - Agent 定义文件保持独立
