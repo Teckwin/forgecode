@@ -15,7 +15,7 @@ use forge_api::{
     InterruptionReason, Model, ModelId, Provider, ProviderId, TextMessage, UserPrompt,
 };
 use forge_app::utils::{format_display_path, truncate_key};
-use forge_app::{CommitResult, ToolResolver};
+use forge_app::{CommitResult, ChatResponseDeduplicator, ToolResolver};
 use forge_display::MarkdownFormat;
 use forge_domain::{
     AuthMethod, ChatResponseContent, ConsoleWriter, ContextMessage, Role, TitleFormat, UserCommand,
@@ -2982,7 +2982,11 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
     }
 
     async fn on_chat(&mut self, chat: ChatRequest) -> Result<()> {
-        let mut stream = self.api.chat(chat).await?;
+        let stream = self.api.chat(chat).await?;
+
+        // Wrap stream with deduplicator to filter out duplicate messages
+        // This prevents duplicate outputs like "I should think step by step..."
+        let mut stream = ChatResponseDeduplicator::new(stream);
 
         // Always use streaming content writer
         let mut writer = StreamingWriter::new(self.spinner.clone(), self.api.clone());
