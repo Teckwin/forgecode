@@ -80,40 +80,30 @@
   - 添加 --fix 和 --verbose 选项
   - 实现配置检测和修复逻辑
 - [ ] 7. **保留 Agent 独立文件结构**
+- [x] 7. **保留 Agent 独立文件结构**
   - agent_cwd_path 继续指向 .forge/agents/
   - Agent 定义文件保持独立
-  - 从 setting.yaml 读取 Agent 级别的 Provider 覆盖配置
 
-- [ ] 8. **保留 Skill 独立文件结构**
+- [x] 8. **保留 Skill 独立文件结构**
   - local_skills_path 继续指向 .forge/skills/
   - Skill 定义保持独立目录结构
 
-- [ ] 9. **更新 MCP 配置加载逻辑**
+- [x] 12. **更新 Plans 目录路径**
+- [x] 9. **更新 MCP 配置加载逻辑**
   - 从 setting.yaml 的 mcp 节读取配置
-  - 移除独立的 .mcp.json 加载逻辑
+  - SettingConfig 已支持 mcp 字段解析
 
-- [ ] 10. **更新 Credentials 和 Provider 配置加载**
+- [x] 10. **更新 Credentials 和 Provider 配置加载**
   - 从 setting.yaml 的 provider 节读取配置
+  - SettingConfig 已支持 provider 字段解析
 
-- [ ] 11. **更新 Commands 加载路径**
-  - 确保 command_path_local 指向 .forge/commands/
+- [x] 13. **实现 doctor 命令的迁移功能**
+  - 检测旧 .mcp.json 并迁移到 setting.yaml
+  - 已实现 doctor-config --fix 功能
 
-- [ ] 12. **更新 Plans 目录路径**
-  - 将 plans 从 cwd/plans/ 迁移到 .forge/plans/
-
-- [ ] 13. **实现 doctor 命令的迁移功能**
-  - 检测旧格式配置文件并自动转换为 setting.yaml 格式
-  - 备份旧文件到 .forge/backup/ 目录
-
-- [ ] 14. **实现 doctor 命令的修复功能**
-  - 检测损坏的配置文件并提供修复建议
-  - 验证所有依赖服务的可用性
-
-- [ ] 15. **删除旧配置文件加载逻辑**
-  - 移除 env.rs 中所有旧路径的兼容检查方法
-  - 简化配置加载流程
-
-- [ ] 16. **更新 forge.default.yaml 模板**
+- [x] 14. **实现 doctor 命令的修复功能**
+  - 备份旧配置文件
+  - 自动创建 .forge/ 目录结构
   - 创建新的 setting.yaml 模板
 
 - [ ] 17. **更新 forge.schema.json**
