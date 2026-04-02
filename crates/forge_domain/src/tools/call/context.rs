@@ -19,7 +19,11 @@ pub struct ToolCallContext {
 impl ToolCallContext {
     /// Creates a new ToolCallContext with default values
     pub fn new(metrics: Metrics) -> Self {
-        Self { sender: None, metrics: Arc::new(Mutex::new(metrics)), timeout: None }
+        Self {
+            sender: None,
+            metrics: Arc::new(Mutex::new(metrics)),
+            timeout: None,
+        }
     }
 
     /// Send a message through the sender if available

@@ -15,7 +15,7 @@ use forge_api::{
     InterruptionReason, Model, ModelId, Provider, ProviderId, TextMessage, UserPrompt,
 };
 use forge_app::utils::{format_display_path, truncate_key};
-use forge_app::{CommitResult, ChatResponseDeduplicator, ToolResolver};
+use forge_app::{ChatResponseDeduplicator, CommitResult, ToolResolver};
 use forge_display::MarkdownFormat;
 use forge_domain::{
     AuthMethod, ChatResponseContent, ConsoleWriter, ContextMessage, Role, TitleFormat, UserCommand,

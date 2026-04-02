@@ -25,7 +25,10 @@ impl From<ChatResponseContent> for ChatResponse {
 
 impl From<TitleFormat> for ChatResponse {
     fn from(title: TitleFormat) -> Self {
-        ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content: ChatResponseContent::ToolInput(title) }
+        ChatResponse::TaskMessage {
+            message_id: Uuid::new_v4(),
+            content: ChatResponseContent::ToolInput(title),
+        }
     }
 }
 
@@ -254,7 +257,8 @@ mod tests {
             partial: false,
         };
 
-        let msg1 = ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content: content.clone() };
+        let msg1 =
+            ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content: content.clone() };
         let msg2 = ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content };
 
         // With unique IDs, messages have different debug representations
@@ -279,17 +283,23 @@ mod tests {
 
         // Simulate the same reasoning being sent multiple times
         let messages: Vec<ChatResponse> = (0..3)
-            .map(|_| ChatResponse::TaskReasoning { message_id: Uuid::new_v4(), content: reasoning_content.clone() })
+            .map(|_| ChatResponse::TaskReasoning {
+                message_id: Uuid::new_v4(),
+                content: reasoning_content.clone(),
+            })
             .collect();
 
         // Each message now has a unique ID - we can detect duplicates
-        let unique_ids: std::collections::HashSet<_> = messages.iter().map(|m| {
-            if let ChatResponse::TaskReasoning { message_id, .. } = m {
-                *message_id
-            } else {
-                Uuid::nil()
-            }
-        }).collect();
+        let unique_ids: std::collections::HashSet<_> = messages
+            .iter()
+            .map(|m| {
+                if let ChatResponse::TaskReasoning { message_id, .. } = m {
+                    *message_id
+                } else {
+                    Uuid::nil()
+                }
+            })
+            .collect();
         assert_eq!(unique_ids.len(), 3, "Each message should have a unique ID");
     }
 
@@ -308,7 +318,7 @@ mod tests {
         // With unique IDs, we can now filter duplicates
         let msg_id1 = Uuid::new_v4();
         let msg_id2 = Uuid::new_v4();
-        let msg_id3 = Uuid::new_v4(); // This is TaskComplete, no ID needed
+        let _msg_id3 = Uuid::new_v4(); // This is TaskComplete, no ID needed
         let msg_id4 = Uuid::new_v4(); // Duplicate of msg_id1
 
         let messages = [

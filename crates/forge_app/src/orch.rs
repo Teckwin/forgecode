@@ -7,7 +7,7 @@ use derive_setters::Setters;
 use forge_domain::{Agent, *};
 use forge_template::Element;
 use tokio::sync::Notify;
-use tokio::time::{timeout, Duration as TokioDuration};
+use tokio::time::{Duration as TokioDuration, timeout};
 use tracing::warn;
 use uuid::Uuid;
 
@@ -100,17 +100,15 @@ impl<S: AgentService> Orchestrator<S> {
             let timeout_duration = tool_context.timeout().unwrap_or(TokioDuration::MAX);
             let call_result = timeout(
                 timeout_duration,
-                self.services.call(&self.agent, tool_context, tool_call.clone()),
+                self.services
+                    .call(&self.agent, tool_context, tool_call.clone()),
             )
             .await;
 
             let tool_result = match call_result {
                 Ok(result) => result,
                 Err(elapsed) => {
-                    tracing::warn!(
-                        "Tool call timed out after {:?}",
-                        elapsed
-                    );
+                    tracing::warn!("Tool call timed out after {:?}", elapsed);
                     ToolResult::new(tool_call.name.clone())
                         .call_id(tool_call.call_id.clone())
                         .output(Err(anyhow::anyhow!(

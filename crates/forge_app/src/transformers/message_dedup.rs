@@ -78,7 +78,11 @@ impl Stream for ChatResponseDeduplicator {
                             // Second check: is the content the same as the last message?
                             let content_duplicate = text_content
                                 .as_ref()
-                                .and_then(|text| self.last_task_message_content.as_ref().map(|last| (text, last)))
+                                .and_then(|text| {
+                                    self.last_task_message_content
+                                        .as_ref()
+                                        .map(|last| (text, last))
+                                })
                                 .map(|(text, last)| text == last)
                                 .unwrap_or(false);
 
@@ -156,8 +160,12 @@ mod test {
         let id2 = Uuid::new_v4();
 
         let stream = MpscStream::spawn(move |tx| async move {
-            tx.send(Ok(create_task_message(id1, "First message"))).await.unwrap();
-            tx.send(Ok(create_task_message(id2, "Second message"))).await.unwrap();
+            tx.send(Ok(create_task_message(id1, "First message")))
+                .await
+                .unwrap();
+            tx.send(Ok(create_task_message(id2, "Second message")))
+                .await
+                .unwrap();
         });
 
         let mut dedup = ChatResponseDeduplicator::new(stream);
@@ -186,8 +194,12 @@ mod test {
 
         // Create two messages with the same ID
         let stream = MpscStream::spawn(move |tx| async move {
-            tx.send(Ok(create_task_message(id1, "First occurrence"))).await.unwrap();
-            tx.send(Ok(create_task_message(id1, "Duplicate"))).await.unwrap();
+            tx.send(Ok(create_task_message(id1, "First occurrence")))
+                .await
+                .unwrap();
+            tx.send(Ok(create_task_message(id1, "Duplicate")))
+                .await
+                .unwrap();
             tx.send(Ok(ChatResponse::TaskComplete)).await.unwrap();
         });
 
@@ -196,7 +208,9 @@ mod test {
         // Should get first message
         let msg1 = dedup.next().await.unwrap().unwrap();
         if let ChatResponse::TaskMessage { content, .. } = msg1 {
-            assert!(matches!(content, ChatResponseContent::Markdown { text, .. } if text == "First occurrence"));
+            assert!(
+                matches!(content, ChatResponseContent::Markdown { text, .. } if text == "First occurrence")
+            );
         }
 
         // Should skip duplicate and get TaskComplete
@@ -220,22 +234,38 @@ mod test {
         // The first two have the same content (should filter the second)
         // The third has different content (should pass through)
         let stream = MpscStream::spawn(move |tx| async move {
-            tx.send(Ok(create_task_reasoning(id1, "I should think step by step"))).await.unwrap();
+            tx.send(Ok(create_task_reasoning(
+                id1,
+                "I should think step by step",
+            )))
+            .await
+            .unwrap();
             // Different ID but same content - this IS a duplicate by content
-            tx.send(Ok(create_task_reasoning(id2, "I should think step by step"))).await.unwrap();
+            tx.send(Ok(create_task_reasoning(
+                id2,
+                "I should think step by step",
+            )))
+            .await
+            .unwrap();
             // Different content - should pass through
-            tx.send(Ok(create_task_reasoning(id3, "Let me analyze the options"))).await.unwrap();
+            tx.send(Ok(create_task_reasoning(id3, "Let me analyze the options")))
+                .await
+                .unwrap();
         });
 
         let mut dedup = ChatResponseDeduplicator::new(stream);
 
         // First message should pass through
         let msg1 = dedup.next().await.unwrap().unwrap();
-        assert!(matches!(msg1, ChatResponse::TaskReasoning { content, .. } if content == "I should think step by step"));
+        assert!(
+            matches!(msg1, ChatResponse::TaskReasoning { content, .. } if content == "I should think step by step")
+        );
 
         // Second message has same content, should be filtered
         let msg2 = dedup.next().await.unwrap().unwrap();
-        assert!(matches!(msg2, ChatResponse::TaskReasoning { content, .. } if content == "Let me analyze the options"));
+        assert!(
+            matches!(msg2, ChatResponse::TaskReasoning { content, .. } if content == "Let me analyze the options")
+        );
 
         // No more messages
         let msg3 = dedup.next().await;
