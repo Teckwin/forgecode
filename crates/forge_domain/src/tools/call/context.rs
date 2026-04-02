@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use derive_setters::Setters;
+use tokio::time::Duration;
 use uuid::Uuid;
 
 use crate::{ArcSender, ChatResponse, Metrics, TitleFormat, Todo, TodoItem};
@@ -10,12 +11,15 @@ use crate::{ArcSender, ChatResponse, Metrics, TitleFormat, Todo, TodoItem};
 pub struct ToolCallContext {
     sender: Option<ArcSender>,
     metrics: Arc<Mutex<Metrics>>,
+    /// Timeout for tool calls. If None, no timeout is applied.
+    #[setters(strip_option, rename = "timeout_duration")]
+    timeout: Option<Duration>,
 }
 
 impl ToolCallContext {
     /// Creates a new ToolCallContext with default values
     pub fn new(metrics: Metrics) -> Self {
-        Self { sender: None, metrics: Arc::new(Mutex::new(metrics)) }
+        Self { sender: None, metrics: Arc::new(Mutex::new(metrics)), timeout: None }
     }
 
     /// Send a message through the sender if available
@@ -83,6 +87,11 @@ impl ToolCallContext {
     /// validation fails.
     pub fn update_todos(&self, changes: Vec<TodoItem>) -> anyhow::Result<Vec<Todo>> {
         self.try_with_metrics(|metrics| metrics.apply_todo_changes(changes))
+    }
+
+    /// Returns the timeout duration for tool calls
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout
     }
 }
 
