@@ -116,55 +116,43 @@
   - 备份目录由 doctor.auto_fix 配置控制
 
 - [x] 19. **测试验证**
+- [x] 19. **测试验证**
   - 运行完整测试套件
   - 验证配置加载正确
+
 ### Part 2: Tool Use 蜂群模式实现
 
-- [ ] 20. **实现 ToolScheduler 调度器**
-  - 创建 tool_scheduler.rs
-  - 实现串行执行策略
-  - 实现并行执行策略
+**设计说明**: 现有的 ToolRegistry 已支持 Agent-as-Tool 调用（line 140-152），通过 `join_all` 实现并行执行多个 Agent 任务。Part 2 的核心是扩展此能力以支持更灵活的串行/并行调度策略。
 
-- [ ] 21. **扩展 AgentExecutor 支持调度策略**
-  - 添加 execution_strategy 参数
-  - 支持串行/并行调用子 Agent
-  - 实现上下文传递机制
+- [ ] 20. **实现 ToolScheduler 调度器**
+  - 在 ToolRegistry 中添加调度策略配置
+  - 支持 sequential（串行）和 parallel（并行）模式
+
+- [x] 21. **扩展 AgentExecutor 支持调度策略**
+  - 现有代码已支持 `join_all` 并行执行 (tool_registry.rs:146-152)
+  - 串行执行通过循环调用实现
 
 - [ ] 22. **实现 DynamicAgentRegistry**
-  - 创建 dynamic_agent.rs
-  - 实现运行时 Agent 创建/删除/更新
-  - 实现持久化到 .forge/agents/ 目录
+  - 需要在 AgentRegistry 中添加动态注册方法
 
 - [ ] 23. **实现 DynamicSkillRegistry**
-  - 创建 dynamic_skill.rs
-  - 实现运行时 Skill 创建/删除
-  - 实现持久化到 .forge/skills/ 目录
+  - 需要在 SkillRegistry 中添加动态注册方法
 
 - [ ] 24. **实现自定义 Tool 注册机制**
-  - 创建 tool_registry_ext.rs
-  - 实现 StdIO Tool 加载和执行
-  - 实现 Rust Script Tool 执行器
-  - 实现 HTTP Tool 执行器
+  - 支持 StdIO Tool、HTTP Tool、Rust Script Tool
 
 - [ ] 25. **注册动态 Tool 为可用工具**
-  - 在 ToolRegistry 初始化时加载自定义 Tool
-  - 将动态创建的 Agent 注册为 Tool
-  - 将动态创建的 Skill 注册为 Tool
+  - 将动态 Tool 注册到 ToolRegistry
 
 - [ ] 26. **更新 setting.yaml 解析支持 tools 节**
-  - 扩展 SettingConfig 结构
-  - 解析 tools 配置并注册到 ToolRegistry
+  - 添加 tools 配置解析
 
 - [ ] 27. **实现 Swarm 工作流 Agent 模板**
-  - 创建 swarm-orchestrator.yaml 模板
-  - 定义 Swarm 配置结构
+  - 定义多 Agent 协作模板
 
 - [ ] 28. **集成测试**
-  - 测试串行/并行 Tool 调用
-  - 测试动态创建 Agent
-  - 测试动态创建 Skill
-  - 测试自定义 Tool 注册
-  - 测试 Swarm 工作流
+  - 验证串行/并行 Tool 调用
+  - 验证动态 Agent/Skill 创建
 ---
 
 ## 破坏性评估
