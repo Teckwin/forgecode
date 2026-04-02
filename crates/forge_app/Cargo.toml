@@ -35,6 +35,7 @@ convert_case.workspace = true
 backon.workspace = true
 sha2.workspace = true
 dashmap.workspace = true
+uuid.workspace = true
 
 url.workspace = true
 reqwest.workspace = true

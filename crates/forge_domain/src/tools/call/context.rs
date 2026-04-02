@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use derive_setters::Setters;
+use uuid::Uuid;
 
 use crate::{ArcSender, ChatResponse, Metrics, TitleFormat, Todo, TodoItem};
 
@@ -30,6 +31,7 @@ impl ToolCallContext {
     pub async fn send_tool_input(&self, title: impl Into<TitleFormat>) -> anyhow::Result<()> {
         let title = title.into();
         self.send(ChatResponse::TaskMessage {
+            message_id: Uuid::new_v4(),
             content: crate::ChatResponseContent::ToolInput(title),
         })
         .await

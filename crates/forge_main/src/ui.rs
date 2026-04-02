@@ -3112,7 +3112,7 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
             return Ok(());
         }
         match message {
-            ChatResponse::TaskMessage { content } => match content {
+            ChatResponse::TaskMessage { content, .. } => match content {
                 ChatResponseContent::ToolInput(title) => {
                     writer.finish()?;
                     self.writeln(title.display())?;
@@ -3125,7 +3125,7 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
                     writer.write(&text)?;
                 }
             },
-            ChatResponse::ToolCallStart { tool_call, notifier } => {
+            ChatResponse::ToolCallStart { tool_call, notifier, .. } => {
                 // Scope guard to ensure notification happens even on error.
                 // If writer.finish() or spinner.stop() fails, the guard's drop
                 // will still notify orch, preventing the deadlock.
@@ -3174,7 +3174,7 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
                     self.writeln_title(TitleFormat::error(cause.as_str()))?;
                 }
             }
-            ChatResponse::Interrupt { reason } => {
+            ChatResponse::Interrupt { reason, .. } => {
                 writer.finish()?;
                 self.spinner.stop(None)?;
 
@@ -3195,7 +3195,7 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
                     )?;
                 }
             }
-            ChatResponse::TaskReasoning { content } => {
+            ChatResponse::TaskReasoning { content, .. } => {
                 writer.write_dimmed(&content)?;
             }
             ChatResponse::TaskComplete => {

@@ -13,6 +13,7 @@ use futures::future::join_all;
 use serde_json::{Map, Value, json};
 use strum::IntoEnumIterator;
 use tokio::time::timeout;
+use uuid::Uuid;
 
 use crate::agent_executor::AgentExecutor;
 use crate::dto::ToolsOverview;
@@ -166,6 +167,7 @@ impl<S: Services> ToolRegistry<S> {
                 let text = style(text).cyan().dim().to_string();
                 context
                     .send(ChatResponse::TaskMessage {
+                        message_id: Uuid::new_v4(),
                         content: ChatResponseContent::ToolOutput(text),
                     })
                     .await?;

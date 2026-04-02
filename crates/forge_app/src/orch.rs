@@ -8,6 +8,7 @@ use forge_domain::{Agent, *};
 use forge_template::Element;
 use tokio::sync::Notify;
 use tracing::warn;
+use uuid::Uuid;
 
 use crate::TemplateEngine;
 use crate::agent::AgentService;
@@ -73,6 +74,7 @@ impl<S: AgentService> Orchestrator<S> {
             if is_system_tool {
                 let notifier = Arc::new(Notify::new());
                 self.send(ChatResponse::ToolCallStart {
+                    message_id: Uuid::new_v4(),
                     tool_call: tool_call.clone(),
                     notifier: notifier.clone(),
                 })
@@ -316,6 +318,7 @@ impl<S: AgentService> Orchestrator<S> {
 
             if self.error_tracker.limit_reached() {
                 self.send(ChatResponse::Interrupt {
+                    message_id: Uuid::new_v4(),
                     reason: InterruptionReason::MaxToolFailurePerTurnLimitReached {
                         limit: *self.error_tracker.limit() as u64,
                         errors: self.error_tracker.errors().clone(),
@@ -345,6 +348,7 @@ impl<S: AgentService> Orchestrator<S> {
                     );
                     // raise an interrupt event to notify the UI
                     self.send(ChatResponse::Interrupt {
+                        message_id: Uuid::new_v4(),
                         reason: InterruptionReason::MaxRequestPerTurnLimitReached {
                             limit: max_request_allowed as u64,
                         },

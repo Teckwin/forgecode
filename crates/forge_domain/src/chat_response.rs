@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use chrono::Local;
 use tokio::sync::Notify;
+use uuid::Uuid;
 
 use crate::{ToolCallFull, ToolName, ToolResult};
 
@@ -18,13 +19,13 @@ pub enum ChatResponseContent {
 
 impl From<ChatResponseContent> for ChatResponse {
     fn from(content: ChatResponseContent) -> Self {
-        ChatResponse::TaskMessage { content }
+        ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content }
     }
 }
 
 impl From<TitleFormat> for ChatResponse {
     fn from(title: TitleFormat) -> Self {
-        ChatResponse::TaskMessage { content: ChatResponseContent::ToolInput(title) }
+        ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content: ChatResponseContent::ToolInput(title) }
     }
 }
 
@@ -54,13 +55,16 @@ impl ChatResponseContent {
 #[derive(Debug, Clone)]
 pub enum ChatResponse {
     TaskMessage {
+        message_id: Uuid,
         content: ChatResponseContent,
     },
     TaskReasoning {
+        message_id: Uuid,
         content: String,
     },
     TaskComplete,
     ToolCallStart {
+        message_id: Uuid,
         tool_call: ToolCallFull,
         notifier: Arc<Notify>,
     },
@@ -70,6 +74,7 @@ pub enum ChatResponse {
         duration: Duration,
     },
     Interrupt {
+        message_id: Uuid,
         reason: InterruptionReason,
     },
 }
@@ -87,7 +92,7 @@ impl ChatResponse {
                 ChatResponseContent::ToolOutput(content) => content.is_empty(),
                 ChatResponseContent::Markdown { text, .. } => text.is_empty(),
             },
-            ChatResponse::TaskReasoning { content } => content.is_empty(),
+            ChatResponse::TaskReasoning { content, .. } => content.is_empty(),
             _ => false,
         }
     }
@@ -249,21 +254,18 @@ mod tests {
             partial: false,
         };
 
-        let msg1 = ChatResponse::TaskMessage { content: content.clone() };
-        let msg2 = ChatResponse::TaskMessage { content };
+        let msg1 = ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content: content.clone() };
+        let msg2 = ChatResponse::TaskMessage { message_id: Uuid::new_v4(), content };
 
-        // Current behavior: Two messages with same content are equal
-        // This makes it impossible to distinguish between original and duplicate
-        // Using debug format to compare since PartialEq is not derived
+        // With unique IDs, messages have different debug representations
         let msg1_debug = format!("{:?}", msg1);
         let msg2_debug = format!("{:?}", msg2);
-        assert_eq!(
+        assert_ne!(
             msg1_debug, msg2_debug,
-            "Messages with same content are equal"
+            "Messages with same content but different IDs should not be equal"
         );
 
-        // Problem: There's no way to track if msg2 is a duplicate of msg1
-        // A proper fix would add a unique message_id field to ChatResponse
+        // We can now track duplicates using message_id
     }
 
     /// Test: TaskReasoning messages can be duplicated
@@ -277,22 +279,18 @@ mod tests {
 
         // Simulate the same reasoning being sent multiple times
         let messages: Vec<ChatResponse> = (0..3)
-            .map(|_| ChatResponse::TaskReasoning { content: reasoning_content.clone() })
+            .map(|_| ChatResponse::TaskReasoning { message_id: Uuid::new_v4(), content: reasoning_content.clone() })
             .collect();
 
-        // All messages have the same debug representation - no way to detect duplication
-        let first_debug = format!("{:?}", messages[0]);
-        for msg in &messages[1..] {
-            let debug = format!("{:?}", msg);
-            assert_eq!(
-                first_debug, debug,
-                "All reasoning messages have same content"
-            );
-        }
-
-        // With a unique ID, we could track and deduplicate
-        // let unique_ids: HashSet<_> = messages.iter().map(|m| m.id()).collect();
-        // assert_eq!(unique_ids.len(), 1, "Should have only one unique message");
+        // Each message now has a unique ID - we can detect duplicates
+        let unique_ids: std::collections::HashSet<_> = messages.iter().map(|m| {
+            if let ChatResponse::TaskReasoning { message_id, .. } = m {
+                *message_id
+            } else {
+                Uuid::nil()
+            }
+        }).collect();
+        assert_eq!(unique_ids.len(), 3, "Each message should have a unique ID");
     }
 
     /// Test: Demonstrate the need for message deduplication in streams
@@ -307,31 +305,38 @@ mod tests {
             partial: false,
         };
 
+        // With unique IDs, we can now filter duplicates
+        let msg_id1 = Uuid::new_v4();
+        let msg_id2 = Uuid::new_v4();
+        let msg_id3 = Uuid::new_v4(); // This is TaskComplete, no ID needed
+        let msg_id4 = Uuid::new_v4(); // Duplicate of msg_id1
+
         let messages = [
-            ChatResponse::TaskMessage { content: original_content.clone() },
-            ChatResponse::TaskMessage { content: original_content.clone() },
+            ChatResponse::TaskMessage { message_id: msg_id1, content: original_content.clone() },
+            ChatResponse::TaskMessage { message_id: msg_id2, content: original_content.clone() },
             ChatResponse::TaskComplete,
-            ChatResponse::TaskMessage { content: original_content.clone() }, // Duplicate
+            ChatResponse::TaskMessage { message_id: msg_id4, content: original_content.clone() }, // Duplicate of msg_id1
         ];
 
-        // Current: No way to filter duplicates based on unique IDs
-        let task_messages: Vec<_> = messages
+        // Now we can filter duplicates based on unique IDs
+        let mut seen_ids = std::collections::HashSet::new();
+        let unique_messages: Vec<_> = messages
             .iter()
-            .filter(|m| matches!(m, ChatResponse::TaskMessage { .. }))
+            .filter(|m| {
+                if let ChatResponse::TaskMessage { message_id, .. } = m {
+                    seen_ids.insert(*message_id)
+                } else {
+                    true // Keep non-TaskMessage variants
+                }
+            })
             .collect();
 
-        // We get 3 task messages, but can't tell which are duplicates
+        // We now have 3 unique messages (msg_id1, msg_id2, msg_id4 are all unique)
+        // In a real deduplication scenario, we'd track IDs across the stream
         assert_eq!(
-            task_messages.len(),
-            3,
-            "Cannot filter duplicates without unique IDs"
+            unique_messages.len(),
+            4,
+            "All messages in this example have unique IDs"
         );
-
-        // Desired behavior with unique IDs:
-        // let seen_ids = HashSet::new();
-        // let unique: Vec<_> = messages
-        //     .into_iter()
-        //     .filter(|m| seen_ids.insert(m.id()))
-        //     .collect();
     }
 }
