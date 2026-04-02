@@ -1570,7 +1570,7 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
         // Get current working directory
         let cwd = std::env::current_dir()?;
         let forge_dir = cwd.join(".forge");
-        let setting_path = forge_dir.join("setting.yaml");
+        let setting_path = forge_dir.join("settings.yaml");
         let old_mcp_path = cwd.join(".mcp.json");
         let old_forge_yaml_path = cwd.join("forge.yaml");
 
@@ -1584,34 +1584,35 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
         // Detect issues
         let mut issues = Vec::new();
 
-        // Check for old .mcp.json (should be .forge/setting.yaml)
+        // Check for old .mcp.json (should be .forge/settings.yaml)
         if old_mcp_path.exists() {
             issues.push(ConfigIssue {
                 severity: "WARN".to_string(),
-                description: "Found old .mcp.json file (should be migrated to .forge/setting.yaml)"
-                    .to_string(),
+                description:
+                    "Found old .mcp.json file (should be migrated to .forge/settings.yaml)"
+                        .to_string(),
                 path: old_mcp_path,
-                fix_action: Some("migrate_to_setting_yaml".to_string()),
+                fix_action: Some("migrate_to_settings_yaml".to_string()),
             });
         }
 
-        // Check for forge.yaml (should be .forge/setting.yaml)
+        // Check for forge.yaml (should be .forge/settings.yaml)
         if old_forge_yaml_path.exists() {
             issues.push(ConfigIssue {
                 severity: "WARN".to_string(),
                 description:
-                    "Found old forge.yaml file (should be migrated to .forge/setting.yaml)"
+                    "Found old forge.yaml file (should be migrated to .forge/settings.yaml)"
                         .to_string(),
                 path: old_forge_yaml_path,
-                fix_action: Some("migrate_to_setting_yaml".to_string()),
+                fix_action: Some("migrate_to_settings_yaml".to_string()),
             });
         }
 
-        // Check for .forge/setting.yaml existence
+        // Check for .forge/settings.yaml existence
         if !setting_path.exists() {
             issues.push(ConfigIssue {
                 severity: "INFO".to_string(),
-                description: ".forge/setting.yaml not found (will use defaults)".to_string(),
+                description: ".forge/settings.yaml not found (will use defaults)".to_string(),
                 path: setting_path.clone(),
                 fix_action: None,
             });
@@ -1658,12 +1659,12 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
     /// Fix a configuration issue
     async fn fix_config_issue(&self, issue: &ConfigIssue) -> anyhow::Result<()> {
         if let Some(action) = &issue.fix_action
-            && action.as_str() == "migrate_to_setting_yaml"
+            && action.as_str() == "migrate_to_settings_yaml"
         {
-            // Read old config and migrate to setting.yaml
+            // Read old config and migrate to settings.yaml
             let old_content = std::fs::read_to_string(&issue.path)?;
             let cwd = std::env::current_dir()?;
-            let setting_path = cwd.join(".forge/setting.yaml");
+            let setting_path = cwd.join(".forge/settings.yaml");
 
             // Create .forge directory if not exists
             if let Some(parent) = setting_path.parent() {
@@ -1681,14 +1682,14 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
 
             std::fs::copy(&issue.path, &backup_path)?;
 
-            // Create initial setting.yaml with migrated content
+            // Create initial settings.yaml with migrated content
             let setting_content = format!(
                 "# Migrated from {}\n# Original content:\n{}\n",
                 issue.path.display(),
                 old_content
             );
 
-            // If setting.yaml exists, append; otherwise create new
+            // If settings.yaml exists, append; otherwise create new
             if setting_path.exists() {
                 println!("  Backup created: {}", backup_path.display());
             } else {
