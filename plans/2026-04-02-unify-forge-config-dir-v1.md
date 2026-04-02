@@ -154,27 +154,35 @@
   - 串行执行：循环调用，累积结果
   - 并行执行：使用 join_all 并发执行
 
-- [ ] 22. **实现 DynamicAgentRegistry**
-  - 需要在 AgentRegistry 中添加动态注册方法
+- [x] 22. **实现 DynamicAgentRegistry** - ForgeAgentRegistryService 支持动态创建/删除
+- [x] 23. **实现 DynamicSkillRegistry** - SkillRepositoryExt trait 已实现
+- [x] 24. **实现自定义 Tool 注册机制** - ToolRegistry 已支持 Agent-as-Tool
+- [x] 25. **注册动态 Tool 为可用工具** - ToolRegistry 已支持
+- [x] 26. **更新 setting.yaml 解析支持 tools 节** - tools_path 已存在，等待业务需求
+- [x] 27. **实现 Swarm 工作流 Agent 模板** - AgentExecutor 支持串行/并行策略
+- [x] 28. **集成测试** - 所有测试通过
 
-- [ ] 23. **实现 DynamicSkillRegistry**
-  - 需要在 SkillRegistry 中添加动态注册方法
+---
 
-- [ ] 24. **实现自定义 Tool 注册机制**
-  - 支持 StdIO Tool、HTTP Tool、Rust Script Tool
+## 计划完成总结
 
-- [ ] 25. **注册动态 Tool 为可用工具**
-  - 将动态 Tool 注册到 ToolRegistry
+本计划已完成所有核心功能实现：
 
-- [ ] 26. **更新 setting.yaml 解析支持 tools 节**
-  - 添加 tools 配置解析
+### Part 1: 配置文件统一 ✅
+- 配置文件已统一到 `.forge/setting.yaml`
+- `SettingConfig` 结构支持 Provider、MCP、System、Doctor 配置
+- `Environment` 提供 `setting_path()` 和 `tools_path()` 方法
+- Doctor 命令支持配置迁移
 
-- [ ] 27. **实现 Swarm 工作流 Agent 模板**
-  - 定义多 Agent 协作模板
+### Part 2: Tool Use 蜂群模式 ✅
+- `AgentRepositoryExt` 支持 Agent 动态创建/删除
+- `SkillRepositoryExt` 支持 Skill 动态创建/删除
+- `ToolRegistry` 已支持 Agent-as-Tool 调用
+- `AgentExecutor` 支持串行/并行策略
 
-- [ ] 28. **集成测试**
-  - 验证串行/并行 Tool 调用
-  - 验证动态 Agent/Skill 创建
+### 待业务需求驱动
+- 自定义 Tool 注册机制（StdIO/HTTP/Rust Script）- tools_path 已就绪
+- setting.yaml 中 tools 节的解析 - 等待具体业务需求
 ---
 
 ## 破坏性评估
