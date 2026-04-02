@@ -15,10 +15,13 @@ on:
         required: false
         default: 'x86_64-unknown-linux-gnu'
         type: string
-  # Automatic trigger when label is added
+  # Automatic trigger when label is added or PR is updated
   pull_request:
     types:
+      - synchronize
+      - opened
       - labeled
+      - unlabeled
     branches:
       - main
 
