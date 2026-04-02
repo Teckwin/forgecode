@@ -1,0 +1,130 @@
+# Build For Test Workflow
+#
+# This workflow provides quick feedback for PR validation before full CI runs.
+# It runs a focused set of validations: check, build, and test.
+# Can be triggered manually or automatically via the "ci: build for test" label.
+
+name: Build For Test
+
+on:
+  # Manual trigger for quick PR validation
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Build target (default: x86_64-unknown-linux-gnu)'
+        required: false
+        default: 'x86_64-unknown-linux-gnu'
+        type: string
+  # Automatic trigger when label is added or PR is updated
+  pull_request:
+    types:
+      - synchronize
+      - opened
+      - labeled
+      - unlabeled
+    branches:
+      - main
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Quick validation: check + build + test in one job for faster feedback
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+
+    - name: Setup Protobuf Compiler
+      uses: arduino/setup-protoc@v3
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Rust Toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Run cargo check
+      run: cargo check --workspace --all-features
+
+    - name: Run cargo build (debug)
+      run: cargo build --workspace --all-features
+
+    - name: Run cargo test
+      run: cargo test --workspace --all-features
+
+  # Additional quick checks in parallel
+  lint:
+    name: Lint (Clippy + Fmt)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+
+    - name: Setup Rust Toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Run Clippy
+      run: cargo clippy --workspace --all-features -- -D warnings
+
+    - name: Run Rustfmt
+      run: cargo fmt --check
+
+  # Build for specific target (useful for cross-platform validation)
+  build-target:
+    name: Build Target
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      target: ${{ steps.build.outputs.target }}
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+
+    - name: Setup Protobuf Compiler
+      uses: arduino/setup-protoc@v3
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Rust Toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - id: build
+      name: Build for target
+      run: |
+        TARGET="${{ github.event.inputs.target || 'x86_64-unknown-linux-gnu' }}"
+        echo "target=$TARGET" >> $GITHUB_OUTPUT
+        cargo build --workspace --release --target "$TARGET"
+
+  # Notify on completion (optional - for visibility)
+  notify:
+    name: Build Complete
+    needs: [build-and-test, lint, build-target]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Summary
+      run: |
+        echo "## Build For Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Build and Test | ${{ needs.build-and-test.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build Target (${{ needs.build-target.outputs.target }}) | ${{ needs.build-target.result }} |" >> $GITHUB_STEP_SUMMARY
