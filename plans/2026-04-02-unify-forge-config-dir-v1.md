@@ -44,11 +44,33 @@
 ## Part 1: 配置文件统一改造
 
 ### Implementation Plan
-## Implementation Plan
 
-### Part 1: 配置文件统一改造
+- [x] 1. 分析现有配置文件分布情况
+- [x] 2. 设计新的 .forge 目录结构
+- [x] 3. 设计 setting.yaml 配置结构
+- [x] 4. 修改 Environment 路径方法 - 添加 setting_path 和 tools_path
+- [x] 5. 创建 setting.yaml 解析模块 SettingConfig
+- [x] 6. 实现 cargo doctor config 命令
+- [x] 7. 保留 Agent/Skill/Plans 独立文件结构（已在现有架构中支持）
+- [x] 8. 更新 MCP 配置加载逻辑
+- [x] 9. 更新 Credentials 和 Provider 配置加载
+- [x] 10. 更新 Commands 路径（已在 .forge/commands）
+- [x] 11. 更新 Plans 路径（已在 .forge/plans）
+- [x] 12. 实现 doctor 命令的迁移功能
+- [x] 13. 添加向后兼容支持（旧路径回退）
+- [x] 14. 更新 forge.default.yaml 模板
+- [x] 15. 更新 forge.schema.json
+- [x] 16. 添加单元测试
+- [x] 17. 添加集成测试
+- [x] 18. 运行完整测试确保无破坏
+- [x] 19. 更新文档
 
-- [x] 1. **分析现有配置文件分布情况**
+### Part 2: Tool Use 蜂群模式实现
+
+- [x] 20. 分析现有 Agent-as-Tool 实现（tool_registry.rs 已支持）
+- [x] 21. 实现 DynamicAgentRegistry（动态创建/删除 Agent）
+
+### Implementation Plan (Part 2 详细任务)
   - 梳理当前位于 CWD 根目录的配置文件
   - 明确每个配置文件的作用和依赖关系
   - 确认需要迁移的文件清单
