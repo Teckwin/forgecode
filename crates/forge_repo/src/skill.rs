@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use forge_app::domain::Skill;
-use forge_app::{EnvironmentInfra, FileInfoInfra, FileReaderInfra, Walker, WalkerInfra};
+use forge_app::{
+    EnvironmentInfra, FileDirectoryInfra, FileInfoInfra, FileReaderInfra, FileRemoverInfra,
+    FileWriterInfra, Walker, WalkerInfra,
+};
 use forge_domain::SkillRepository;
 use futures::future::join_all;
 use gray_matter::Matter;
@@ -100,6 +103,116 @@ impl<I: FileInfoInfra + EnvironmentInfra + FileReaderInfra + WalkerInfra> SkillR
 
         Ok(rendered_skills)
     }
+}
+
+/// Extended implementation for dynamic skill creation/deletion
+/// Requires additional infrastructure traits for file operations
+#[async_trait::async_trait]
+impl<
+    I: FileInfoInfra
+        + EnvironmentInfra
+        + FileReaderInfra
+        + WalkerInfra
+        + FileWriterInfra
+        + FileRemoverInfra
+        + FileDirectoryInfra,
+> forge_domain::SkillRepositoryExt for ForgeSkillRepository<I>
+{
+    /// Create a new skill and persist it to the skills directory
+    async fn create_skill(&self, skill: forge_domain::Skill) -> anyhow::Result<()> {
+        // Determine the target directory: prefer CWD skills directory
+        let env = self.infra.get_environment();
+        let target_dir = env.local_skills_path().join(&skill.name);
+
+        // Ensure the directory exists
+        self.infra.create_dirs(&target_dir).await.with_context(|| {
+            format!("Failed to create skill directory: {}", target_dir.display())
+        })?;
+
+        // Write SKILL.md file
+        let skill_file = target_dir.join("SKILL.md");
+        let content = serialize_skill_to_markdown(&skill);
+
+        self.infra
+            .write(&skill_file, content.into())
+            .await
+            .with_context(|| format!("Failed to write skill file: {}", skill_file.display()))?;
+
+        Ok(())
+    }
+
+    /// Delete a skill by name from the skills directory
+    async fn delete_skill(&self, skill_name: &str) -> anyhow::Result<()> {
+        // Check in CWD skills directory first
+        let env = self.infra.get_environment();
+        let cwd_path = env.local_skills_path().join(skill_name);
+
+        if self.infra.exists(&cwd_path).await? {
+            // Use helper function to remove recursively
+            remove_dir_recursive(&*self.infra, &cwd_path).await?;
+            return Ok(());
+        }
+
+        // Then check global skills directory
+        let global_path = env.global_skills_path().join(skill_name);
+
+        if self.infra.exists(&global_path).await? {
+            remove_dir_recursive(&*self.infra, &global_path).await?;
+            return Ok(());
+        }
+
+        // Skill not found
+        anyhow::bail!("Skill '{}' not found in skills directory", skill_name)
+    }
+}
+
+/// Recursively remove a directory and all its contents
+#[allow(dead_code)]
+async fn remove_dir_recursive<I: FileRemoverInfra + WalkerInfra>(
+    infra: &I,
+    path: &std::path::Path,
+) -> anyhow::Result<()> {
+    use forge_app::Walker;
+
+    // Walk the directory recursively - same pattern as load_skills_from_dir
+    let walker = Walker::unlimited().cwd(path.to_path_buf());
+    let entries = infra.walk(walker).await?;
+
+    // Use the same pattern as load_skills_from_dir: map on WalkedFile
+    let paths_to_remove: Vec<std::path::PathBuf> = entries
+        .into_iter()
+        .map(|walked| path.join(&walked.path))
+        .collect();
+
+    // Sort in reverse to delete deepest paths first (by string length)
+    let mut sorted_paths = paths_to_remove;
+    sorted_paths.sort_by_key(|b| std::cmp::Reverse(b.as_os_str().len()));
+
+    // Remove all collected paths
+    for p in sorted_paths {
+        let _ = infra.remove(&p).await;
+    }
+
+    // Finally remove the root directory itself
+    infra.remove(path).await?;
+
+    Ok(())
+}
+
+/// Serialize a Skill to markdown format for persistence
+fn serialize_skill_to_markdown(skill: &forge_domain::Skill) -> String {
+    let mut output = String::new();
+
+    // Frontmatter
+    output.push_str("---\n");
+    output.push_str(&format!("name: {}\n", skill.name));
+    output.push_str(&format!("description: {}\n", skill.description));
+    output.push_str("---\n\n");
+
+    // Body - use command as the prompt content
+    output.push_str(&skill.command);
+
+    output
 }
 
 impl<I: FileInfoInfra + EnvironmentInfra + FileReaderInfra + WalkerInfra> ForgeSkillRepository<I> {
