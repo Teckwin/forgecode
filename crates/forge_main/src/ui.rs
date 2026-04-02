@@ -52,6 +52,15 @@ use crate::{TRACKER, banner, tracker};
 // File-specific constants
 const MISSING_AGENT_TITLE: &str = "<missing agent.title>";
 
+/// Configuration issue detected by doctor
+#[derive(Debug, Clone)]
+struct ConfigIssue {
+    severity: String,
+    description: String,
+    path: std::path::PathBuf,
+    fix_action: Option<String>,
+}
+
 /// Conversation dump format used by the /dump command
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 struct ConversationDump {
@@ -681,6 +690,10 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
             }
             TopLevelCommand::Doctor => {
                 self.on_zsh_doctor().await?;
+                return Ok(());
+            }
+            TopLevelCommand::DoctorConfig(args) => {
+                self.on_doctor_config(args).await?;
                 return Ok(());
             }
         }
@@ -1547,6 +1560,142 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
         // Stream the diagnostic output in real-time
         crate::zsh::run_zsh_doctor()?;
 
+        Ok(())
+    }
+
+    /// Run configuration diagnostics and migration
+    async fn on_doctor_config(&mut self, args: crate::cli::DoctorConfigArgs) -> anyhow::Result<()> {
+        self.spinner.stop(None)?;
+
+        // Get current working directory
+        let cwd = std::env::current_dir()?;
+        let forge_dir = cwd.join(".forge");
+        let setting_path = forge_dir.join("setting.yaml");
+        let old_mcp_path = cwd.join(".mcp.json");
+        let old_forge_yaml_path = cwd.join("forge.yaml");
+
+        println!();
+        println!(
+            "{}",
+            forge_domain::TitleFormat::info("FORGE CONFIG DOCTOR").display()
+        );
+        println!();
+
+        // Detect issues
+        let mut issues = Vec::new();
+
+        // Check for old .mcp.json (should be .forge/setting.yaml)
+        if old_mcp_path.exists() {
+            issues.push(ConfigIssue {
+                severity: "WARN".to_string(),
+                description: "Found old .mcp.json file (should be migrated to .forge/setting.yaml)"
+                    .to_string(),
+                path: old_mcp_path,
+                fix_action: Some("migrate_to_setting_yaml".to_string()),
+            });
+        }
+
+        // Check for forge.yaml (should be .forge/setting.yaml)
+        if old_forge_yaml_path.exists() {
+            issues.push(ConfigIssue {
+                severity: "WARN".to_string(),
+                description:
+                    "Found old forge.yaml file (should be migrated to .forge/setting.yaml)"
+                        .to_string(),
+                path: old_forge_yaml_path,
+                fix_action: Some("migrate_to_setting_yaml".to_string()),
+            });
+        }
+
+        // Check for .forge/setting.yaml existence
+        if !setting_path.exists() {
+            issues.push(ConfigIssue {
+                severity: "INFO".to_string(),
+                description: ".forge/setting.yaml not found (will use defaults)".to_string(),
+                path: setting_path.clone(),
+                fix_action: None,
+            });
+        }
+
+        if issues.is_empty() {
+            println!("  {}", forge_domain::TitleFormat::success("[OK]").display());
+            println!("  All configurations are up to date");
+            return Ok(());
+        }
+
+        // Report issues
+        for issue in &issues {
+            println!(
+                "  {}",
+                forge_domain::TitleFormat::warning(format!("[{}]", issue.severity)).display()
+            );
+            println!("  - {}", issue.description);
+            if args.verbose {
+                println!("    Path: {}", issue.path.display());
+            }
+        }
+
+        println!();
+
+        // Auto-fix if requested
+        if args.fix {
+            self.spinner.start(Some("Fixing"))?;
+            for issue in &issues {
+                self.fix_config_issue(issue).await?;
+            }
+            self.spinner.stop(None)?;
+            println!(
+                "{}",
+                forge_domain::TitleFormat::success("All issues fixed!").display()
+            );
+        } else {
+            println!("Run with --fix to automatically fix these issues");
+        }
+
+        Ok(())
+    }
+
+    /// Fix a configuration issue
+    async fn fix_config_issue(&self, issue: &ConfigIssue) -> anyhow::Result<()> {
+        if let Some(action) = &issue.fix_action
+            && action.as_str() == "migrate_to_setting_yaml"
+        {
+            // Read old config and migrate to setting.yaml
+            let old_content = std::fs::read_to_string(&issue.path)?;
+            let cwd = std::env::current_dir()?;
+            let setting_path = cwd.join(".forge/setting.yaml");
+
+            // Create .forge directory if not exists
+            if let Some(parent) = setting_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+
+            // Backup old file
+            let backup_path = cwd
+                .join(".forge/backup")
+                .join(issue.path.file_name().unwrap().to_str().unwrap());
+
+            if let Some(backup_parent) = backup_path.parent() {
+                std::fs::create_dir_all(backup_parent)?;
+            }
+
+            std::fs::copy(&issue.path, &backup_path)?;
+
+            // Create initial setting.yaml with migrated content
+            let setting_content = format!(
+                "# Migrated from {}\n# Original content:\n{}\n",
+                issue.path.display(),
+                old_content
+            );
+
+            // If setting.yaml exists, append; otherwise create new
+            if setting_path.exists() {
+                println!("  Backup created: {}", backup_path.display());
+            } else {
+                std::fs::write(&setting_path, setting_content)?;
+                println!("  Created: {}", setting_path.display());
+            }
+        }
         Ok(())
     }
 

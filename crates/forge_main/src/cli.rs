@@ -151,6 +151,21 @@ pub enum TopLevelCommand {
 
     /// Run diagnostics on shell environment (alias for `zsh doctor`).
     Doctor,
+
+    /// Run diagnostics and migration for configuration.
+    #[command(alias = "dc")]
+    DoctorConfig(DoctorConfigArgs),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct DoctorConfigArgs {
+    /// Run in repair mode - automatically fix issues.
+    #[arg(long, short = 'f')]
+    pub fix: bool,
+
+    /// Show detailed migration information.
+    #[arg(long, short = 'v')]
+    pub verbose: bool,
 }
 
 /// Command group for custom command management.
@@ -1760,6 +1775,41 @@ mod tests {
     fn test_doctor_alias() {
         let fixture = Cli::parse_from(["forge", "doctor"]);
         let actual = matches!(fixture.subcommands, Some(TopLevelCommand::Doctor));
+        assert_eq!(actual, true);
+    }
+
+    #[test]
+    fn test_doctor_config_command() {
+        let fixture = Cli::parse_from(["forge", "doctor-config"]);
+        let actual = matches!(fixture.subcommands, Some(TopLevelCommand::DoctorConfig(_)));
+        assert_eq!(actual, true);
+    }
+
+    #[test]
+    fn test_doctor_config_with_fix_flag() {
+        let fixture = Cli::parse_from(["forge", "doctor-config", "--fix"]);
+        let actual = match fixture.subcommands {
+            Some(TopLevelCommand::DoctorConfig(args)) => args.fix,
+            _ => panic!("Expected DoctorConfig command"),
+        };
+        assert_eq!(actual, true);
+    }
+
+    #[test]
+    fn test_doctor_config_with_verbose_flag() {
+        let fixture = Cli::parse_from(["forge", "doctor-config", "--verbose"]);
+        let actual = match fixture.subcommands {
+            Some(TopLevelCommand::DoctorConfig(args)) => args.verbose,
+            _ => panic!("Expected DoctorConfig command"),
+        };
+        assert_eq!(actual, true);
+    }
+
+    #[test]
+    fn test_doctor_config_alias() {
+        // Test short alias dc
+        let fixture = Cli::parse_from(["forge", "dc"]);
+        let actual = matches!(fixture.subcommands, Some(TopLevelCommand::DoctorConfig(_)));
         assert_eq!(actual, true);
     }
 
