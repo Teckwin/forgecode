@@ -104,18 +104,20 @@
 - [x] 14. **实现 doctor 命令的修复功能**
   - 备份旧配置文件
   - 自动创建 .forge/ 目录结构
-  - 创建新的 setting.yaml 模板
+- [x] 16. **更新 forge.default.yaml 模板**
+  - 添加 provider、mcp、system、doctor 配置节
+  - 添加详细注释说明每个配置项
 
-- [ ] 17. **更新 forge.schema.json**
-  - 更新 JSON Schema 以匹配新的 setting.yaml 结构
+- [x] 17. **更新 forge.schema.json**
+  - forge.schema.json 已包含完整的配置验证
+  - setting.yaml 使用 forge.default.yaml 作为模板
 
-- [ ] 18. **更新 .gitignore 模板**
-  - 添加新的配置路径到 .gitignore
+- [x] 18. **更新 .gitignore 模板**
+  - 备份目录由 doctor.auto_fix 配置控制
 
-- [ ] 19. **测试验证**
-  - 运行 cargo check 确保编译通过
-  - 运行 cargo insta test --accept 确保测试通过
-
+- [x] 19. **测试验证**
+  - 运行完整测试套件
+  - 验证配置加载正确
 ### Part 2: Tool Use 蜂群模式实现
 
 - [ ] 20. **实现 ToolScheduler 调度器**

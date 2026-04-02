@@ -1,7 +1,78 @@
 # yaml-language-server: $schema=./forge.schema.json
+
+# =============================================================================
+# Forge Configuration Template
+# =============================================================================
+# This is the default configuration for new projects.
+# For full configuration options, see forge.schema.json
+
+# =============================================================================
+# Provider Configuration
+# =============================================================================
+# Configure LLM providers and default settings
+provider:
+  # Default provider (anthropic, openai, etc.)
+  default: anthropic
+
+  # Anthropic-specific settings
+  anthropic:
+    # Use environment variable: ${ANTHROPIC_API_KEY}
+    # model: "claude-sonnet-4-20250514"
+
+  # OpenAI-specific settings
+  openai:
+    # Use environment variable: ${OPENAI_API_KEY}
+    # model: "gpt-4o"
+
+# =============================================================================
+# Agent-Level Provider Overrides
+# =============================================================================
+# Override provider settings for specific agents
+# agents:
+#   - id: "sage"
+#     model: "claude-opus-4-20250514"
+#     parameters:
+#       temperature: 0.7
+#       max_tokens: 4000
+
+# =============================================================================
+# MCP (Model Context Protocol) Configuration
+# =============================================================================
+# Configure MCP servers for enhanced capabilities
+# mcp:
+#   servers:
+#     - name: "filesystem"
+#       description: "File system access"
+#       command: "npx"
+#       args: ["-y", "@modelcontextprotocol/server-filesystem", "./"]
+
+# =============================================================================
+# System Configuration
+# =============================================================================
+# Global system settings
+system:
+  # Context compaction settings
+  compact:
+    enabled: true
+    max_tokens: 2000
+    token_threshold: 100000
+    retention_window: 6
+    message_threshold: 200
+    eviction_window: 0.2
+
+# =============================================================================
+# Doctor Configuration
+# =============================================================================
+# Configuration for the doctor command
+doctor:
+  auto_fix: true
+  backup_dir: ".forge/backup"
+
+# =============================================================================
+# Legacy Configuration (for backward compatibility)
+# =============================================================================
 variables:
   operating_agent: Forge
-  # Define model anchors with simpler, purpose-based names
   advanced_model: &advanced_model anthropic/claude-sonnet-4
 
 max_requests_per_turn: 100
@@ -11,15 +82,6 @@ top_k: 30
 max_tokens: 20480
 max_walker_depth: 1
 tool_supported: true
-
-# Global compact configuration applied to all agents
-compact:
-  max_tokens: 2000
-  token_threshold: 100000
-  retention_window: 6
-  message_threshold: 200
-  eviction_window: 0.2
-  on_turn_end: false
 
 updates:
   frequency: "daily"
