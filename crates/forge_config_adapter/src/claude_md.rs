@@ -78,14 +78,13 @@ impl ClaudeMdParser {
                 let value = line[colon_idx + 1..].trim();
 
                 match key {
-                    "globs" => {
-                        if value.starts_with('[') && value.ends_with(']') {
+                    "globs"
+                        if value.starts_with('[') && value.ends_with(']') => {
                             instruction.globs = value[1..value.len() - 1]
                                 .split(',')
                                 .map(|s| s.trim().trim_matches('"').to_string())
                                 .collect();
                         }
-                    }
                     "description" => {
                         instruction.description = Some(value.trim_matches('"').to_string());
                     }
@@ -101,14 +100,13 @@ impl ClaudeMdParser {
                     "agent" => {
                         instruction.agent = Some(value.trim_matches('"').to_string());
                     }
-                    "skills" => {
-                        if value.starts_with('[') && value.ends_with(']') {
+                    "skills"
+                        if value.starts_with('[') && value.ends_with(']') => {
                             instruction.skills = value[1..value.len() - 1]
                                 .split(',')
                                 .map(|s| s.trim().trim_matches('"').to_string())
                                 .collect();
                         }
-                    }
                     _ => {}
                 }
             }

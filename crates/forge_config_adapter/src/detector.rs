@@ -326,7 +326,7 @@ mod tests {
         // This test uses the global ~/.claude directory if it exists
         // or tests the function doesn't panic
         let temp_dir = std::env::temp_dir();
-        let configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
+        let _configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
 
         // Just verify the function works without panicking
         // The actual detection depends on the test environment
@@ -337,7 +337,7 @@ mod tests {
     fn test_detect_rules_directory() {
         // This test checks if the function handles missing directories
         let temp_dir = std::env::temp_dir();
-        let configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
+        let _configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
 
         // Just verify the function works without panicking
         assert!(true);
@@ -347,7 +347,7 @@ mod tests {
     fn test_detect_project_claude_md() {
         // This test checks if the function handles missing files
         let temp_dir = std::env::temp_dir();
-        let configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
+        let _configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
 
         // Just verify the function works without panicking
         assert!(true);
@@ -360,7 +360,7 @@ mod tests {
 
         // Should not panic regardless of what configs exist
         let result = ConfigDetector::has_external_configs(&temp_dir);
-        assert!(result == false || result == true);
+        assert!(!result || result);
     }
 
     #[test]

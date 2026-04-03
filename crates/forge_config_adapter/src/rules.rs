@@ -95,14 +95,13 @@ impl RulesParser {
                 let value = line[colon_idx + 1..].trim();
 
                 match key {
-                    "globs" => {
-                        if value.starts_with('[') && value.ends_with(']') {
+                    "globs"
+                        if value.starts_with('[') && value.ends_with(']') => {
                             rule.globs = value[1..value.len() - 1]
                                 .split(',')
                                 .map(|s| s.trim().trim_matches('"').to_string())
                                 .collect();
                         }
-                    }
                     "description" => {
                         rule.description = Some(value.trim_matches('"').to_string());
                     }
