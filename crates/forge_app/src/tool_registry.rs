@@ -445,6 +445,27 @@ mod tests {
     }
 
     #[test]
+    fn test_error_permission_denied_display() {
+        let error = Error::PermissionDenied {
+            operation: "agent:test_agent".to_string(),
+        };
+        assert_eq!(error.to_string(), "Permission denied for operation: agent:test_agent");
+    }
+
+    #[test]
+    fn test_error_circular_agent_call_display() {
+        use forge_domain::AgentId;
+        let error = Error::CircularAgentCall {
+            agent_id: AgentId::new("agent_a"),
+            chain: "agent_a -> agent_b -> agent_a".to_string(),
+        };
+        // The actual error message includes the full chain with agent_id prefix
+        let actual = error.to_string();
+        assert!(actual.contains("Circular agent call detected"));
+        assert!(actual.contains("agent_a"));
+    }
+
+    #[test]
     fn test_validate_tool_call_with_glob_pattern_wildcard() {
         let fixture = Agent::new(
             AgentId::new("test_agent"),
