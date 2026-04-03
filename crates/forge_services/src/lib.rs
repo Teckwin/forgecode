@@ -1,4 +1,5 @@
 mod agent_registry;
+mod agent_registry_test;
 mod app_config;
 mod attachment;
 mod auth;
@@ -24,6 +25,7 @@ mod template;
 mod tool_services;
 mod utils;
 
+pub use agent_registry::*;
 pub use app_config::*;
 pub use clipper::*;
 pub use command::*;
