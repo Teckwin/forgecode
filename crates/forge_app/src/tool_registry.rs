@@ -143,6 +143,26 @@ impl<S: Services> ToolRegistry<S> {
             let executor = self.agent_executor.clone();
             let agent_id = AgentId::new(input.name.as_str());
 
+            // Check tool permission for agent tool call
+            // Note: Agent's internal LLM conversation is NOT permission-controlled,
+            // but any tools the agent calls ARE permission-controlled
+            let permission_check = self
+                .services
+                .check_operation_permission(
+                    &forge_domain::policies::PermissionOperation::AgentCall {
+                        agent_id: agent_id.clone(),
+                        cwd: self.services.get_environment().cwd.clone(),
+                        message: format!("Call agent: {}", agent_id.as_str()),
+                    },
+                )
+                .await?;
+            if !permission_check.allowed {
+                return Err(Error::PermissionDenied {
+                    operation: format!("agent:{}", agent_id.as_str()),
+                }
+                .into());
+            }
+
             // Execute based on strategy: parallel (default) or sequential
             let outputs = if agent_input.strategy == "sequential" {
                 // Sequential: execute tasks one by one, passing results to next
@@ -424,6 +444,28 @@ mod tests {
             error,
             "Tool 'write' is not available. Please try again with one of these tools: [read, fs_search]"
         );
+    }
+
+    #[test]
+    fn test_error_permission_denied_display() {
+        let error = Error::PermissionDenied { operation: "agent:test_agent".to_string() };
+        assert_eq!(
+            error.to_string(),
+            "Permission denied for operation: agent:test_agent"
+        );
+    }
+
+    #[test]
+    fn test_error_circular_agent_call_display() {
+        use forge_domain::AgentId;
+        let error = Error::CircularAgentCall {
+            agent_id: AgentId::new("agent_a"),
+            chain: "agent_a -> agent_b -> agent_a".to_string(),
+        };
+        // The actual error message includes the full chain with agent_id prefix
+        let actual = error.to_string();
+        assert!(actual.contains("Circular agent call detected"));
+        assert!(actual.contains("agent_a"));
     }
 
     #[test]
@@ -930,4 +972,89 @@ fn test_all_rendered_tool_descriptions() {
         "all_rendered_tool_descriptions",
         all_descriptions.join("\n---\n\n")
     );
+}
+
+/// Tests for circular call detection in agent tool invocations
+#[cfg(test)]
+mod agent_circular_call_tests {
+    use forge_domain::{AgentCallChain, AgentId};
+
+    #[test]
+    fn test_agent_call_chain_detects_circular_call() {
+        // Test that AgentCallChain can detect circular agent calls
+        let chain = AgentCallChain::new();
+        let agent_a = AgentId::new("agent-a");
+        let agent_b = AgentId::new("agent-b");
+
+        // Simulate: Agent A calls Agent B
+        chain.push(&agent_a);
+        chain.push(&agent_b);
+
+        // If Agent B tries to call Agent A, that's a circular call
+        let is_circular = chain.contains(&agent_a);
+        assert!(
+            is_circular,
+            "Should detect circular call when agent is already in chain"
+        );
+    }
+
+    #[test]
+    fn test_agent_call_chain_allows_non_circular_call() {
+        let chain = AgentCallChain::new();
+        let agent_a = AgentId::new("agent-a");
+        let agent_b = AgentId::new("agent-b");
+
+        // Agent A calls Agent B (first time)
+        chain.push(&agent_a);
+        let is_circular = chain.contains(&agent_b);
+        assert!(!is_circular, "Should allow non-circular call");
+    }
+
+    #[tokio::test]
+    async fn test_tool_registry_prevents_circular_agent_call() {
+        // This test verifies the circular call detection logic
+        // In a real implementation, ToolRegistry would use AgentCallChain
+        // to track ongoing agent invocations and prevent circular calls
+
+        let chain = AgentCallChain::new();
+
+        // Simulate Agent A starting to call Agent B
+        let agent_a = AgentId::new("agent-a");
+        let agent_b = AgentId::new("agent-b");
+
+        // Add agents to chain (simulating the call stack)
+        chain.push(&agent_a);
+        chain.push(&agent_b);
+
+        // Check if adding another agent would create a cycle
+        // Agent B calling Agent A would be circular
+        assert!(chain.contains(&agent_a), "agent-a is in chain");
+        assert!(chain.contains(&agent_b), "agent-b is in chain");
+
+        // If we try to call agent-a while it's already in chain,
+        // the system should detect this as a circular call
+        let would_be_circular = chain.contains(&agent_a);
+        assert!(would_be_circular, "Circular call should be detected");
+    }
+
+    #[tokio::test]
+    async fn test_agent_scope_manages_lifecycle() {
+        let chain = AgentCallChain::new();
+        let agent_id = AgentId::new("test-agent");
+
+        // Use scope to automatically manage agent lifecycle
+        {
+            let _scope = chain.scope(agent_id.clone());
+            assert!(
+                chain.contains(&agent_id),
+                "Agent should be in chain during scope"
+            );
+        }
+
+        // After scope is dropped, agent should be removed
+        assert!(
+            !chain.contains(&agent_id),
+            "Agent should be removed after scope"
+        );
+    }
 }

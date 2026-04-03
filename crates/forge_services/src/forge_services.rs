@@ -23,6 +23,7 @@ use crate::instructions::ForgeCustomInstructionsService;
 use crate::mcp::{ForgeMcpManager, ForgeMcpService};
 use crate::policy::ForgePolicyService;
 use crate::provider_service::ForgeProviderService;
+use crate::skill_registry::ForgeSkillRegistryService;
 use crate::template::ForgeTemplateService;
 use crate::tool_services::{
     ForgeFetch, ForgeFollowup, ForgeFsPatch, ForgeFsRead, ForgeFsRemove, ForgeFsSearch,
@@ -83,6 +84,7 @@ pub struct ForgeServices<
     provider_auth_service: ForgeProviderAuthService<F>,
     workspace_service: Arc<crate::context_engine::ForgeWorkspaceService<F, FdDefault<F>>>,
     skill_service: Arc<ForgeSkillFetch<F>>,
+    skill_registry_service: Arc<ForgeSkillRegistryService<F>>,
     infra: Arc<F>,
 }
 
@@ -142,6 +144,7 @@ impl<
             discovery,
         ));
         let skill_service = Arc::new(ForgeSkillFetch::new(infra.clone()));
+        let skill_registry_service = Arc::new(ForgeSkillRegistryService::new(infra.clone()));
 
         Self {
             conversation_service,
@@ -170,6 +173,7 @@ impl<
             provider_auth_service,
             workspace_service,
             skill_service,
+            skill_registry_service,
             chat_service,
             infra,
         }
@@ -237,6 +241,7 @@ impl<
     type ProviderService = ForgeProviderService<F>;
     type WorkspaceService = crate::context_engine::ForgeWorkspaceService<F, FdDefault<F>>;
     type SkillFetchService = ForgeSkillFetch<F>;
+    type SkillRegistry = ForgeSkillRegistryService<F>;
 
     fn config_service(&self) -> &Self::AppConfigService {
         &self.config_service
@@ -335,6 +340,10 @@ impl<
     }
     fn skill_fetch_service(&self) -> &Self::SkillFetchService {
         &self.skill_service
+    }
+
+    fn skill_registry(&self) -> &Self::SkillRegistry {
+        &self.skill_registry_service
     }
 
     fn provider_service(&self) -> &Self::ProviderService {

@@ -1,7 +1,10 @@
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
 /// Operations that can be performed and need policy checking
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
 pub enum PermissionOperation {
     /// Write operation to a file path
     Write {
@@ -20,6 +23,12 @@ pub enum PermissionOperation {
     /// Network fetch operation with a URL
     Fetch {
         url: String,
+        cwd: PathBuf,
+        message: String,
+    },
+    /// Agent tool call operation
+    AgentCall {
+        agent_id: crate::AgentId,
         cwd: PathBuf,
         message: String,
     },

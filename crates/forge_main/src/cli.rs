@@ -507,8 +507,11 @@ pub enum ConfigCommand {
     /// Get a configuration value.
     Get(ConfigGetArgs),
 
-    /// List configuration values.
+    /// List all configuration values with their sources.
     List,
+
+    /// Show configuration sources and their priority order.
+    Sources,
 }
 
 /// Arguments for `forge config set`.

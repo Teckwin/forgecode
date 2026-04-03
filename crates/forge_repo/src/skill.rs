@@ -67,8 +67,15 @@ impl<I> ForgeSkillRepository<I> {
 }
 
 #[async_trait::async_trait]
-impl<I: FileInfoInfra + EnvironmentInfra + FileReaderInfra + WalkerInfra> SkillRepository
-    for ForgeSkillRepository<I>
+impl<
+    I: FileInfoInfra
+        + EnvironmentInfra
+        + FileReaderInfra
+        + WalkerInfra
+        + FileWriterInfra
+        + FileRemoverInfra
+        + FileDirectoryInfra,
+> SkillRepository for ForgeSkillRepository<I>
 {
     /// Loads all available skills from the skills directory
     ///
@@ -103,21 +110,7 @@ impl<I: FileInfoInfra + EnvironmentInfra + FileReaderInfra + WalkerInfra> SkillR
 
         Ok(rendered_skills)
     }
-}
 
-/// Extended implementation for dynamic skill creation/deletion
-/// Requires additional infrastructure traits for file operations
-#[async_trait::async_trait]
-impl<
-    I: FileInfoInfra
-        + EnvironmentInfra
-        + FileReaderInfra
-        + WalkerInfra
-        + FileWriterInfra
-        + FileRemoverInfra
-        + FileDirectoryInfra,
-> forge_domain::SkillRepositoryExt for ForgeSkillRepository<I>
-{
     /// Create a new skill and persist it to the skills directory
     async fn create_skill(&self, skill: forge_domain::Skill) -> anyhow::Result<()> {
         // Determine the target directory: prefer CWD skills directory

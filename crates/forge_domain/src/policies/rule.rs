@@ -39,6 +39,10 @@ pub struct Fetch {
     pub dir: Option<String>,
 }
 
+/// Rule for agent call operations
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+pub struct AgentCallRule;
+
 /// Rules that define what operations are covered by a policy
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
@@ -51,6 +55,8 @@ pub enum Rule {
     Execute(ExecuteRule),
     /// Rule for network fetch operations with a URL pattern
     Fetch(Fetch),
+    /// Rule for agent call operations
+    AgentCall(AgentCallRule),
 }
 
 impl Rule {
@@ -94,6 +100,7 @@ impl Rule {
                 };
                 url_matches && dir_matches
             }
+            (Rule::AgentCall(_), PermissionOperation::AgentCall { agent_id: _, .. }) => true,
             _ => false,
         }
     }
@@ -157,6 +164,7 @@ impl Display for Rule {
             Rule::Read(rule) => write!(f, "{rule}"),
             Rule::Execute(rule) => write!(f, "{rule}"),
             Rule::Fetch(rule) => write!(f, "{rule}"),
+            Rule::AgentCall(_) => write!(f, "agent-call"),
         }
     }
 }

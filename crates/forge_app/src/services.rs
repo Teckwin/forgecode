@@ -522,6 +522,25 @@ pub trait SkillFetchService: Send + Sync {
     async fn list_skills(&self) -> anyhow::Result<Vec<forge_domain::Skill>>;
 }
 
+/// Skill registry service with dynamic create/delete operations
+#[async_trait::async_trait]
+pub trait SkillRegistry: Send + Sync {
+    /// Get all skills from the registry store
+    async fn get_skills(&self) -> anyhow::Result<Vec<forge_domain::Skill>>;
+
+    /// Get skill by name (from registry store)
+    async fn get_skill(&self, skill_name: &str) -> anyhow::Result<Option<forge_domain::Skill>>;
+
+    /// Reload skills by invalidating the cache
+    async fn reload_skills(&self) -> anyhow::Result<()>;
+
+    /// Create a new skill dynamically and persist to filesystem
+    async fn create_skill(&self, skill: forge_domain::Skill) -> anyhow::Result<()>;
+
+    /// Delete a skill by name from the registry and filesystem
+    async fn delete_skill(&self, skill_name: &str) -> anyhow::Result<()>;
+}
+
 /// Provider authentication service
 #[async_trait::async_trait]
 pub trait ProviderAuthService: Send + Sync {
@@ -576,6 +595,7 @@ pub trait Services: Send + Sync + 'static + Clone + EnvironmentInfra {
     type ProviderAuthService: ProviderAuthService;
     type WorkspaceService: WorkspaceService;
     type SkillFetchService: SkillFetchService;
+    type SkillRegistry: SkillRegistry;
 
     fn provider_service(&self) -> &Self::ProviderService;
     fn config_service(&self) -> &Self::AppConfigService;
@@ -604,6 +624,7 @@ pub trait Services: Send + Sync + 'static + Clone + EnvironmentInfra {
     fn provider_auth_service(&self) -> &Self::ProviderAuthService;
     fn workspace_service(&self) -> &Self::WorkspaceService;
     fn skill_fetch_service(&self) -> &Self::SkillFetchService;
+    fn skill_registry(&self) -> &Self::SkillRegistry;
 }
 
 #[async_trait::async_trait]
