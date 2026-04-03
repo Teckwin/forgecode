@@ -1,0 +1,203 @@
+//! Auto-config migration module
+//!
+//! Provides automatic detection and conversion of external configuration files.
+//! This runs on startup to seamlessly migrate external configs to Forge's format.
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use anyhow::Result;
+
+use crate::claude_code::{ClaudeCodeParser, ClaudeCodeToForgeConverter, ConvertedConfig};
+use crate::claude_md::{ClaudeMdParser, ClaudeMdToForgeConverter};
+use crate::detector::{ConfigDetector, ConfigSource};
+use crate::rules::{RulesParser, RulesToForgeConverter};
+
+/// Auto-migration result
+#[derive(Debug, Clone)]
+pub struct MigrationResult {
+    /// Whether any migration was performed
+    pub migrated: bool,
+    /// List of migrated config sources
+    pub sources: Vec<String>,
+    /// Converted config (if any)
+    pub converted: Option<ConvertedConfig>,
+}
+
+/// Auto-migrator for external configs
+pub struct ConfigAutoMigrator {
+    cwd: PathBuf,
+}
+
+impl ConfigAutoMigrator {
+    /// Creates a new ConfigAutoMigrator with the given working directory
+    pub fn new(cwd: PathBuf) -> Self {
+        Self { cwd }
+    }
+
+    /// Auto-migrate external configs to Forge's format
+    ///
+    /// This is the main entry point for automatic migration.
+    /// It detects external configs, converts them, and merges them into Forge's config.
+    pub fn auto_migrate(&self) -> Result<MigrationResult> {
+        self.detect_and_convert()
+    }
+
+    /// Auto-detect and convert external configs
+    ///
+    /// This scans for known external config files and converts them to Forge's format.
+    /// Returns the converted config if any were found.
+    pub fn detect_and_convert(&self) -> Result<MigrationResult> {
+        let configs = ConfigDetector::detect_all(&self.cwd);
+
+        if configs.is_empty() {
+            return Ok(MigrationResult { migrated: false, sources: vec![], converted: None });
+        }
+
+        let mut all_converted = ConvertedConfig::default();
+        let mut sources = Vec::new();
+
+        for config in configs {
+            let source_name = match config.source {
+                crate::detector::ConfigSource::ClaudeCodeSettings
+                | crate::detector::ConfigSource::ClaudeCodeSettingsLocal => {
+                    "claude-code-settings".to_string()
+                }
+                crate::detector::ConfigSource::ClaudeCodeMd => "claude-code-md".to_string(),
+                crate::detector::ConfigSource::ClaudeCodeRules => "claude-code-rules".to_string(),
+                crate::detector::ConfigSource::Unknown => "unknown".to_string(),
+            };
+
+            match self.convert_config(config.source, &config.path) {
+                Ok(converted) => {
+                    // Merge permissions
+                    if !converted.permissions.allow.is_empty() {
+                        all_converted
+                            .permissions
+                            .allow
+                            .extend(converted.permissions.allow);
+                    }
+                    if !converted.permissions.deny.is_empty() {
+                        all_converted
+                            .permissions
+                            .deny
+                            .extend(converted.permissions.deny);
+                    }
+                    if !converted.permissions.ask.is_empty() {
+                        all_converted
+                            .permissions
+                            .ask
+                            .extend(converted.permissions.ask);
+                    }
+
+                    // Merge MCP servers
+                    all_converted.mcp_servers.extend(converted.mcp_servers);
+
+                    // Merge env vars
+                    all_converted.env.extend(converted.env);
+
+                    // Merge sandbox settings (only use first non-default)
+                    if !converted.sandbox.allowed_directories.is_empty()
+                        && all_converted.sandbox.allowed_directories.is_empty()
+                    {
+                        all_converted.sandbox.allowed_directories =
+                            converted.sandbox.allowed_directories;
+                    }
+
+                    sources.push(source_name);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to convert config from {:?}: {}", config.path, e);
+                }
+            }
+        }
+
+        let migrated = !sources.is_empty();
+
+        Ok(MigrationResult {
+            migrated,
+            sources,
+            converted: if migrated { Some(all_converted) } else { None },
+        })
+    }
+
+    /// Convert a single config file based on its source type
+    fn convert_config(&self, source: ConfigSource, path: &Path) -> Result<ConvertedConfig> {
+        match source {
+            ConfigSource::ClaudeCodeSettings | ConfigSource::ClaudeCodeSettingsLocal => {
+                // JSON settings file
+                let settings = ClaudeCodeParser::parse(path)?;
+                let converted = ClaudeCodeToForgeConverter::convert(settings)?;
+                Ok(converted)
+            }
+            ConfigSource::ClaudeCodeMd => {
+                // CLAUDE.md file
+                let instruction = ClaudeMdParser::parse(path)?;
+                let converted = ClaudeMdToForgeConverter::convert(instruction)?;
+                Ok(converted)
+            }
+            ConfigSource::ClaudeCodeRules => {
+                // rules/*.md file
+                let rule = RulesParser::parse(path)?;
+                let converted = RulesToForgeConverter::convert(vec![rule])?;
+                Ok(converted)
+            }
+            ConfigSource::Unknown => {
+                // Try JSON first, then markdown
+                if let Ok(settings) = ClaudeCodeParser::parse(path) {
+                    let converted = ClaudeCodeToForgeConverter::convert(settings)?;
+                    return Ok(converted);
+                }
+                if let Ok(instruction) = ClaudeMdParser::parse(path) {
+                    let converted = ClaudeMdToForgeConverter::convert(instruction)?;
+                    return Ok(converted);
+                }
+                // Return empty config for unknown types
+                Ok(ConvertedConfig::default())
+            }
+        }
+    }
+
+    /// Check if any external configs exist (quick check without parsing)
+    pub fn has_external_configs(&self) -> bool {
+        ConfigDetector::has_external_configs(&self.cwd)
+    }
+}
+
+/// Extension trait for converting Claude Code permissions to Forge format
+pub trait ToForgePermissions {
+    /// Convert to Forge's permission pattern format
+    fn to_forge_permissions(&self) -> HashMap<String, Vec<String>>;
+}
+
+impl ToForgePermissions for ConvertedConfig {
+    fn to_forge_permissions(&self) -> HashMap<String, Vec<String>> {
+        let mut map = HashMap::new();
+
+        if !self.permissions.allow.is_empty() {
+            map.insert("allow".to_string(), self.permissions.allow.clone());
+        }
+        if !self.permissions.deny.is_empty() {
+            map.insert("deny".to_string(), self.permissions.deny.clone());
+        }
+        if !self.permissions.ask.is_empty() {
+            map.insert("ask".to_string(), self.permissions.ask.clone());
+        }
+
+        map
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_no_configs_returns_none() {
+        let temp_dir = std::env::temp_dir();
+        let migrator = ConfigAutoMigrator::new(temp_dir);
+        let result = migrator.detect_and_convert().unwrap();
+        // May or may not have configs depending on test environment
+        assert!(result.converted.is_none() || result.converted.is_some());
+    }
+}

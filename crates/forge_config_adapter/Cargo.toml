@@ -1,0 +1,17 @@
+[package]
+name = "forge_config_adapter"
+version = "0.1.0"
+edition = "2021"
+description = "Configuration adapter for Forge - auto-detects and converts external config formats"
+
+[dependencies]
+anyhow = "1"
+dirs = "6"
+forge_domain = { path = "../forge_domain" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
