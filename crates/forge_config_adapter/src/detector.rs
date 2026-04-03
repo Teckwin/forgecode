@@ -5,11 +5,19 @@
 
 use std::path::{Path, PathBuf};
 
+use anyhow::Result;
+
 /// Known config file patterns for different ecosystems
 #[derive(Debug, Clone)]
 pub enum ConfigSource {
     /// Claude Code settings.json
-    ClaudeCode,
+    ClaudeCodeSettings,
+    /// Claude Code CLAUDE.md (instructions)
+    ClaudeCodeMd,
+    /// Claude Code rules/*.md (conditional rules)
+    ClaudeCodeRules,
+    /// Claude Code settings.local.json (local overrides)
+    ClaudeCodeSettingsLocal,
     /// Other ecosystem configs (future extension)
     Unknown,
 }
@@ -19,13 +27,35 @@ pub enum ConfigSource {
 pub struct DetectedConfig {
     pub source: ConfigSource,
     pub path: PathBuf,
+    /// Optional: extracted metadata (e.g., frontmatter globs for rules)
+    pub metadata: Option<DetectedConfigMetadata>,
 }
 
 impl DetectedConfig {
     /// Create a new detected config
     pub fn new(source: ConfigSource, path: PathBuf) -> Self {
-        Self { source, path }
+        Self { source, path, metadata: None }
     }
+
+    /// Create a new detected config with metadata
+    pub fn with_metadata(
+        source: ConfigSource,
+        path: PathBuf,
+        metadata: DetectedConfigMetadata,
+    ) -> Self {
+        Self { source, path, metadata: Some(metadata) }
+    }
+}
+
+/// Metadata extracted from config files
+#[derive(Debug, Clone, Default)]
+pub struct DetectedConfigMetadata {
+    /// For CLAUDE.md: frontmatter globs
+    pub globs: Option<Vec<String>>,
+    /// For CLAUDE.md: description
+    pub description: Option<String>,
+    /// For rules/*.md: rule name from filename
+    pub rule_name: Option<String>,
 }
 
 /// Detects external config files in standard locations
@@ -41,9 +71,36 @@ impl ConfigDetector {
             let global_settings = home.join(".claude").join("settings.json");
             if global_settings.exists() {
                 configs.push(DetectedConfig::new(
-                    ConfigSource::ClaudeCode,
+                    ConfigSource::ClaudeCodeSettings,
                     global_settings,
                 ));
+            }
+
+            // Check ~/.claude/CLAUDE.md (global user instructions)
+            let global_claude_md = home.join(".claude").join("CLAUDE.md");
+            if global_claude_md.exists() {
+                if let Ok(metadata) = Self::extract_claude_md_metadata(&global_claude_md) {
+                    configs.push(DetectedConfig::with_metadata(
+                        ConfigSource::ClaudeCodeMd,
+                        global_claude_md,
+                        metadata,
+                    ));
+                } else {
+                    configs.push(DetectedConfig::new(
+                        ConfigSource::ClaudeCodeMd,
+                        global_claude_md,
+                    ));
+                }
+            }
+
+            // Check ~/.claude/rules/*.md (global user rules)
+            let rules_dir = home.join(".claude").join("rules");
+            if rules_dir.is_dir() {
+                if let Ok(rule_configs) =
+                    Self::detect_rules_dir(&rules_dir, ConfigSource::ClaudeCodeRules)
+                {
+                    configs.extend(rule_configs);
+                }
             }
         }
 
@@ -51,12 +108,161 @@ impl ConfigDetector {
         let project_settings = cwd.join(".claude").join("settings.json");
         if project_settings.exists() {
             configs.push(DetectedConfig::new(
-                ConfigSource::ClaudeCode,
+                ConfigSource::ClaudeCodeSettings,
                 project_settings,
             ));
         }
 
+        // Check ./.claude/settings.local.json (local overrides)
+        let local_settings = cwd.join(".claude").join("settings.local.json");
+        if local_settings.exists() {
+            configs.push(DetectedConfig::new(
+                ConfigSource::ClaudeCodeSettingsLocal,
+                local_settings,
+            ));
+        }
+
+        // Check ./CLAUDE.md (project instructions)
+        let project_claude_md = cwd.join("CLAUDE.md");
+        if project_claude_md.exists() {
+            if let Ok(metadata) = Self::extract_claude_md_metadata(&project_claude_md) {
+                configs.push(DetectedConfig::with_metadata(
+                    ConfigSource::ClaudeCodeMd,
+                    project_claude_md,
+                    metadata,
+                ));
+            } else {
+                configs.push(DetectedConfig::new(
+                    ConfigSource::ClaudeCodeMd,
+                    project_claude_md,
+                ));
+            }
+        }
+
+        // Check ./.claude/rules/*.md (project rules)
+        let project_rules_dir = cwd.join(".claude").join("rules");
+        if project_rules_dir.is_dir() {
+            if let Ok(rule_configs) =
+                Self::detect_rules_dir(&project_rules_dir, ConfigSource::ClaudeCodeRules)
+            {
+                configs.extend(rule_configs);
+            }
+        }
+
         configs
+    }
+
+    /// Detect rules in a rules directory
+    fn detect_rules_dir(rules_dir: &Path, source: ConfigSource) -> Result<Vec<DetectedConfig>> {
+        let mut configs = Vec::new();
+
+        if let Ok(entries) = std::fs::read_dir(rules_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && path.extension().is_some_and(|ext| ext == "md") {
+                    let rule_name = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_string());
+
+                    let mut metadata = DetectedConfigMetadata { rule_name, ..Default::default() };
+
+                    // Try to extract globs from frontmatter
+                    if let Ok(file_content) = std::fs::read_to_string(&path) {
+                        if let Ok(frontmatter) = Self::parse_frontmatter(&file_content) {
+                            metadata.globs = frontmatter
+                                .get("globs")
+                                .and_then(|v| v.as_array())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                        .collect()
+                                });
+                            metadata.description = frontmatter
+                                .get("description")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string());
+                        }
+                    }
+
+                    configs.push(DetectedConfig::with_metadata(
+                        source.clone(),
+                        path,
+                        metadata,
+                    ));
+                }
+            }
+        }
+
+        Ok(configs)
+    }
+
+    /// Extract metadata from CLAUDE.md frontmatter
+    fn extract_claude_md_metadata(path: &Path) -> Result<DetectedConfigMetadata> {
+        let content = std::fs::read_to_string(path)?;
+        let mut metadata = DetectedConfigMetadata::default();
+
+        if let Ok(frontmatter) = Self::parse_frontmatter(&content) {
+            metadata.globs = frontmatter
+                .get("globs")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                });
+            metadata.description = frontmatter
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+        }
+
+        Ok(metadata)
+    }
+
+    /// Parse YAML frontmatter from markdown content
+    /// Parse YAML frontmatter from markdown content
+    fn parse_frontmatter(
+        content: &str,
+    ) -> Result<std::collections::HashMap<String, serde_json::Value>> {
+        let mut metadata = std::collections::HashMap::new();
+
+        // Check for --- delimited frontmatter
+        if let Some(stripped) = content.strip_prefix("---") {
+            if let Some(end_idx) = stripped.find("---") {
+                let frontmatter = &stripped[..end_idx];
+                for line in frontmatter.lines() {
+                    let line = line.trim();
+                    if line.is_empty() || line.starts_with('#') {
+                        continue;
+                    }
+                    if let Some(colon_idx) = line.find(':') {
+                        let key = line[..colon_idx].trim().to_string();
+                        let value = line[colon_idx + 1..].trim();
+
+                        // Handle array values
+                        if value.starts_with('[') && value.ends_with(']') {
+                            let arr: Vec<String> = value[1..value.len() - 1]
+                                .split(',')
+                                .map(|s| s.trim().trim_matches('"').to_string())
+                                .collect();
+                            metadata.insert(
+                                key,
+                                serde_json::Value::Array(
+                                    arr.into_iter().map(serde_json::Value::String).collect(),
+                                ),
+                            );
+                        } else {
+                            // Handle string values
+                            let value = value.trim_matches('"');
+                            metadata.insert(key, serde_json::Value::String(value.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(metadata)
     }
 
     /// Auto-detect all known external configs

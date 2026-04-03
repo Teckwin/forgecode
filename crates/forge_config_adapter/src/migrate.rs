@@ -57,7 +57,12 @@ impl ConfigAutoMigrator {
 
         for config in configs {
             let source_name = match config.source {
-                crate::detector::ConfigSource::ClaudeCode => "claude-code".to_string(),
+                crate::detector::ConfigSource::ClaudeCodeSettings
+                | crate::detector::ConfigSource::ClaudeCodeSettingsLocal => {
+                    "claude-code-settings".to_string()
+                }
+                crate::detector::ConfigSource::ClaudeCodeMd => "claude-code-md".to_string(),
+                crate::detector::ConfigSource::ClaudeCodeRules => "claude-code-rules".to_string(),
                 crate::detector::ConfigSource::Unknown => "unknown".to_string(),
             };
 
