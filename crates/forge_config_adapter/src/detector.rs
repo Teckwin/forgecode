@@ -291,10 +291,8 @@ mod tests {
     #[test]
     fn test_detector_returns_empty_for_nonexistent_paths() {
         let temp_dir = std::env::temp_dir();
-        let configs = ConfigDetector::detect_all(&temp_dir);
-        // May or may not have configs depending on test environment
-        // Just verify it doesn't panic
-        assert!(configs.len() >= 0);
+        // Just verify detect_all doesn't panic
+        let _configs = ConfigDetector::detect_all(&temp_dir);
     }
 
     #[test]
