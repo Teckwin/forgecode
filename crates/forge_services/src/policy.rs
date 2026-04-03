@@ -4,8 +4,8 @@ use std::sync::{Arc, LazyLock};
 use anyhow::Context;
 use bytes::Bytes;
 use forge_app::domain::{
-    ExecuteRule, Fetch, Permission, PermissionOperation, Policy, PolicyConfig, PolicyEngine,
-    ReadRule, Rule, WriteRule,
+    AgentCallRule, ExecuteRule, Fetch, Permission, PermissionOperation, Policy, PolicyConfig,
+    PolicyEngine, ReadRule, Rule, WriteRule,
 };
 use forge_app::{
     DirectoryReaderInfra, EnvironmentInfra, FileInfoInfra, FileReaderInfra, FileWriterInfra,
@@ -185,6 +185,9 @@ where
                     PermissionOperation::Fetch { message, .. } => {
                         format!("{message}. How would you like to proceed?")
                     }
+                    PermissionOperation::AgentCall { .. } => {
+                        "Agent call requires confirmation. How would you like to proceed?".to_string()
+                    }
                 };
 
                 match self
@@ -261,6 +264,12 @@ fn create_policy_for_operation(
                     rule: Rule::Execute(ExecuteRule { command: format!("{cmd} {subcmd}*"), dir }),
                 }),
             }
+        }
+        PermissionOperation::AgentCall { agent_id: _, .. } => {
+            Some(Policy::Simple {
+                permission: Permission::Allow,
+                rule: Rule::AgentCall(AgentCallRule),
+            })
         }
     }
 }

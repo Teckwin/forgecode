@@ -52,6 +52,11 @@ impl AgentCallChain {
         self.push(&agent_id);
         AgentCallScope { chain: self, agent_id }
     }
+
+    /// Returns a string representation of the current call chain
+    pub fn get_chain_str(&self) -> String {
+        self.agents.iter().map(|s| s.clone()).collect::<Vec<_>>().join(" -> ")
+    }
 }
 
 impl Default for AgentCallChain {

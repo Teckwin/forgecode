@@ -3558,6 +3558,49 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
             crate::cli::ConfigCommand::List => {
                 self.on_show_config(porcelain).await?;
             }
+            crate::cli::ConfigCommand::Sources => {
+                self.handle_config_sources(porcelain).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Handle config sources command - shows configuration sources and priority
+    async fn handle_config_sources(&mut self, porcelain: bool) -> Result<()> {
+        use forge_domain::TitleFormat;
+
+        if porcelain {
+            // Machine-readable output
+            let sources = vec![
+                "1. Environment variables (highest priority)",
+                "2. CLI arguments",
+                "3. Project forge.yaml",
+                "4. Global ~/.config/forge/forge.yaml",
+                "5. Default values (lowest priority)",
+            ];
+            for source in sources {
+                println!("{}", source);
+            }
+        } else {
+            // Human-readable output
+            self.writeln_title(TitleFormat::action("Configuration Sources"))?;
+            self.writeln("")?;
+            self.writeln("Priority order (highest to lowest):")?;
+            self.writeln("")?;
+            self.writeln("  1. Environment variables")?;
+            self.writeln("     - ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.")?;
+            self.writeln("")?;
+            self.writeln("  2. CLI arguments")?;
+            self.writeln("     - --model, --provider, etc.")?;
+            self.writeln("")?;
+            self.writeln("  3. Project forge.yaml")?;
+            self.writeln("     - ./forge.yaml")?;
+            self.writeln("")?;
+            self.writeln("  4. Global configuration")?;
+            self.writeln("     - ~/.config/forge/forge.yaml")?;
+            self.writeln("")?;
+            self.writeln("  5. Default values")?;
+            self.writeln("     - Built-in defaults (lowest priority)")?;
         }
         Ok(())
     }

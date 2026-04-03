@@ -143,6 +143,24 @@ impl<S: Services> ToolRegistry<S> {
             let executor = self.agent_executor.clone();
             let agent_id = AgentId::new(input.name.as_str());
 
+            // Check tool permission for agent tool call
+            // Note: Agent's internal LLM conversation is NOT permission-controlled,
+            // but any tools the agent calls ARE permission-controlled
+            let permission_check = self
+                .services
+                .check_operation_permission(&forge_domain::policies::PermissionOperation::AgentCall {
+                    agent_id: agent_id.clone(),
+                    cwd: self.services.get_environment().cwd.clone(),
+                    message: format!("Call agent: {}", agent_id.as_str()),
+                })
+                .await?;
+            if !permission_check.allowed {
+                return Err(Error::PermissionDenied {
+                    operation: format!("agent:{}", agent_id.as_str()),
+                }
+                .into());
+            }
+
             // Execute based on strategy: parallel (default) or sequential
             let outputs = if agent_input.strategy == "sequential" {
                 // Sequential: execute tasks one by one, passing results to next

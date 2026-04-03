@@ -32,7 +32,7 @@ mod migration;
 mod model;
 mod node;
 mod point;
-mod policies;
+pub mod policies;
 mod provider;
 mod reasoning;
 mod repo;
