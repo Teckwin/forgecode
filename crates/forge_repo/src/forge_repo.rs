@@ -465,11 +465,28 @@ impl<F: FileInfoInfra + EnvironmentInfra + DirectoryReaderInfra + Send + Sync> A
 }
 
 #[async_trait::async_trait]
-impl<F: FileInfoInfra + EnvironmentInfra + FileReaderInfra + WalkerInfra + Send + Sync>
-    SkillRepository for ForgeRepo<F>
+impl<
+    F: FileInfoInfra
+        + EnvironmentInfra
+        + FileReaderInfra
+        + WalkerInfra
+        + FileWriterInfra
+        + FileRemoverInfra
+        + FileDirectoryInfra
+        + Send
+        + Sync,
+> SkillRepository for ForgeRepo<F>
 {
     async fn load_skills(&self) -> anyhow::Result<Vec<Skill>> {
         self.skill_repository.load_skills().await
+    }
+
+    async fn create_skill(&self, skill: Skill) -> anyhow::Result<()> {
+        self.skill_repository.create_skill(skill).await
+    }
+
+    async fn delete_skill(&self, skill_name: &str) -> anyhow::Result<()> {
+        self.skill_repository.delete_skill(skill_name).await
     }
 }
 

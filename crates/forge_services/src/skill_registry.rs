@@ -5,18 +5,12 @@ use dashmap::DashMap;
 use forge_app::{EnvironmentInfra, domain::SkillRepository};
 use forge_domain::Skill;
 use tokio::sync::RwLock;
-// Import SkillRepositoryExt from forge_domain for dynamic operations
-use forge_domain::SkillRepositoryExt;
 
 /// SkillRegistryService manages runtime Skills in-memory. It lazily loads skills
 /// from SkillRepository on first access and supports dynamic create/delete.
 pub struct ForgeSkillRegistryService<R> {
     // Infrastructure dependency for loading skill definitions
     repository: Arc<R>,
-
-    // Optional extended repository for dynamic create/delete operations
-    // This allows backward compatibility when the extended traits are not available
-    ext_repository: Option<Arc<dyn SkillRepositoryExt>>,
 
     // In-memory storage for skills keyed by skill name string
     // Lazily initialized on first access
@@ -27,16 +21,7 @@ pub struct ForgeSkillRegistryService<R> {
 impl<R> ForgeSkillRegistryService<R> {
     /// Creates a new SkillRegistryService with the given repository
     pub fn new(repository: Arc<R>) -> Self {
-        Self { repository, ext_repository: None, skills: RwLock::new(None) }
-    }
-
-    /// Creates a new SkillRegistryService with both base and extended repository
-    pub fn with_ext(repository: Arc<R>, ext_repository: Arc<dyn SkillRepositoryExt>) -> Self {
-        Self {
-            repository,
-            ext_repository: Some(ext_repository),
-            skills: RwLock::new(None),
-        }
+        Self { repository, skills: RwLock::new(None) }
     }
 }
 
@@ -109,49 +94,37 @@ impl<R: SkillRepository + EnvironmentInfra> forge_app::SkillRegistry
     }
 
     async fn create_skill(&self, skill: Skill) -> anyhow::Result<()> {
-        // Use the extended repository if available, otherwise return an error
-        if let Some(ext) = &self.ext_repository {
-            // Validate skill has required fields
-            if skill.name.is_empty() {
-                anyhow::bail!("Skill name cannot be empty");
-            }
-            if skill.command.is_empty() {
-                anyhow::bail!("Skill command/prompt cannot be empty");
-            }
-
-            ext.create_skill(skill)
-                .await
-                .context("Failed to create skill")?;
-
-            // Invalidate cache to reflect the new skill
-            *self.skills.write().await = None;
-
-            Ok(())
-        } else {
-            anyhow::bail!(
-                "Dynamic skill creation is not available. \
-                Please ensure the infrastructure supports SkillRepositoryExt."
-            )
+        // Validate skill has required fields
+        if skill.name.is_empty() {
+            anyhow::bail!("Skill name cannot be empty");
         }
+        if skill.command.is_empty() {
+            anyhow::bail!("Skill command/prompt cannot be empty");
+        }
+
+        // Use the repository to create the skill
+        self.repository
+            .create_skill(skill)
+            .await
+            .context("Failed to create skill")?;
+
+        // Invalidate cache to reflect the new skill
+        *self.skills.write().await = None;
+
+        Ok(())
     }
 
     async fn delete_skill(&self, skill_name: &str) -> anyhow::Result<()> {
-        // Use the extended repository if available, otherwise return an error
-        if let Some(ext) = &self.ext_repository {
-            ext.delete_skill(skill_name)
-                .await
-                .context("Failed to delete skill")?;
+        // Use the repository to delete the skill
+        self.repository
+            .delete_skill(skill_name)
+            .await
+            .context("Failed to delete skill")?;
 
-            // Invalidate cache to reflect the deletion
-            *self.skills.write().await = None;
+        // Invalidate cache to reflect the deletion
+        *self.skills.write().await = None;
 
-            Ok(())
-        } else {
-            anyhow::bail!(
-                "Dynamic skill deletion is not available. \
-                Please ensure the infrastructure supports SkillRepositoryExt."
-            )
-        }
+        Ok(())
     }
 }
 

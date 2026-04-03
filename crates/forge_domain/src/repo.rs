@@ -174,8 +174,8 @@ pub trait WorkspaceIndexRepository: Send + Sync {
 
 /// Repository for managing skills
 ///
-/// This repository provides operations for loading and managing skills from
-/// markdown files.
+/// This repository provides operations for loading, creating, and managing skills
+/// from markdown files. Supports both read and dynamic create/delete operations.
 #[async_trait::async_trait]
 pub trait SkillRepository: Send + Sync {
     /// Loads all available skills from the skills directory
@@ -183,16 +183,23 @@ pub trait SkillRepository: Send + Sync {
     /// # Errors
     /// Returns an error if skill loading fails
     async fn load_skills(&self) -> Result<Vec<Skill>>;
-}
 
-/// Extended skill repository with dynamic create/delete operations
-/// Requires additional infrastructure traits for file operations
-#[async_trait::async_trait]
-pub trait SkillRepositoryExt: SkillRepository + Send + Sync {
     /// Create a new skill and persist it to the skills directory
+    ///
+    /// # Arguments
+    /// * `skill` - The skill to create
+    ///
+    /// # Errors
+    /// Returns an error if skill creation fails
     async fn create_skill(&self, skill: Skill) -> Result<()>;
 
     /// Delete a skill by name from the skills directory
+    ///
+    /// # Arguments
+    /// * `skill_name` - The name of the skill to delete
+    ///
+    /// # Errors
+    /// Returns an error if skill deletion fails
     async fn delete_skill(&self, skill_name: &str) -> Result<()>;
 }
 

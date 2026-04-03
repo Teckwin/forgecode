@@ -73,6 +73,14 @@ mod tests {
         async fn load_skills(&self) -> anyhow::Result<Vec<Skill>> {
             Ok(self.skills.clone())
         }
+
+        async fn create_skill(&self, _skill: Skill) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn delete_skill(&self, _skill_name: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
     }
 
     #[tokio::test]
