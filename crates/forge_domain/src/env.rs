@@ -223,7 +223,7 @@ impl FromStr for AutoDumpFormat {
 }
 
 /// Unified configuration structure for .forge/settings.yaml
-/// This file consolidates provider, MCP, and system settings.
+/// This file consolidates provider, MCP, system, and tool settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingConfig {
@@ -239,6 +239,9 @@ pub struct SettingConfig {
     /// Doctor command configuration section
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doctor: Option<SettingDoctorConfig>,
+    /// Tool configuration section (MCP/Agent enable/disable per project)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<SettingToolsConfig>,
 }
 
 /// Provider configuration within settings.yaml
@@ -376,6 +379,42 @@ pub struct SettingDoctorConfig {
     pub backup_dir: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub check_interval: Option<u64>,
+}
+
+/// Tool configuration section - enables/disables MCP servers and agents per project
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingToolsConfig {
+    /// MCP server settings
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<SettingToolsMcpConfig>,
+    /// Agent settings
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agents: Option<SettingToolsAgentsConfig>,
+}
+
+/// MCP tool enable/disable configuration
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingToolsMcpConfig {
+    /// Enable all MCP servers (default: true)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    /// Disable specific MCP servers by name
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled: Vec<String>,
+}
+
+/// Agent tool enable/disable configuration
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingToolsAgentsConfig {
+    /// Enable all agents as tools (default: true)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    /// Disable specific agents by name
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub disabled: Vec<String>,
 }
 
 impl Environment {
