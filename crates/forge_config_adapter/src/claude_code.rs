@@ -199,6 +199,21 @@ pub struct ConvertedConfig {
     pub env: HashMap<String, String>,
     pub sandbox: ConvertedSandbox,
     pub hooks: Option<HooksConfig>,
+    /// Converted instructions from CLAUDE.md and rules
+    pub instructions: Vec<InstructionConfig>,
+}
+
+/// Shared instruction configuration for CLAUDE.md and rules
+#[derive(Debug, Clone, Default)]
+pub struct InstructionConfig {
+    pub content: String,
+    pub globs: Vec<String>,
+    pub description: Option<String>,
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    pub context: Option<String>,
+    pub agent: Option<String>,
+    pub skills: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
