@@ -186,7 +186,8 @@ where
                         format!("{message}. How would you like to proceed?")
                     }
                     PermissionOperation::AgentCall { .. } => {
-                        "Agent call requires confirmation. How would you like to proceed?".to_string()
+                        "Agent call requires confirmation. How would you like to proceed?"
+                            .to_string()
                     }
                 };
 
@@ -265,12 +266,10 @@ fn create_policy_for_operation(
                 }),
             }
         }
-        PermissionOperation::AgentCall { agent_id: _, .. } => {
-            Some(Policy::Simple {
-                permission: Permission::Allow,
-                rule: Rule::AgentCall(AgentCallRule),
-            })
-        }
+        PermissionOperation::AgentCall { agent_id: _, .. } => Some(Policy::Simple {
+            permission: Permission::Allow,
+            rule: Rule::AgentCall(AgentCallRule),
+        }),
     }
 }
 

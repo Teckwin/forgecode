@@ -84,20 +84,14 @@ pub enum Error {
 
     // ========== Git Errors ==========
     #[error("Git operation failed: {operation} - {message}")]
-    GitOperation {
-        operation: String,
-        message: String,
-    },
+    GitOperation { operation: String, message: String },
 
     #[error("No changes to commit")]
     GitNoChanges,
 
     // ========== Network Errors ==========
     #[error("HTTP request failed: {url} - {status}")]
-    HttpRequest {
-        url: String,
-        status: u16,
-    },
+    HttpRequest { url: String, status: u16 },
 
     #[error("Network fetch failed: {url}")]
     NetworkFetch { url: String },

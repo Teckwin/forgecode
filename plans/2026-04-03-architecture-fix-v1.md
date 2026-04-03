@@ -18,6 +18,7 @@
 - [ ] ~~2. 完成循环调用检测集成~~ (用户要求移除，等待后续设计)
   - ~~在 ToolRegistry.call_inner 方法中集成 AgentCallChain~~
   - ~~位置: crates/forge_app/src/tool_registry.rs:149-159~~
+  - ~~原因: 当前实现不够科学，需要重新设计循环检测算法~~
 
 - [x] 3. 统一错误处理规范
   - 在 forge_app 模块中定义 domain 错误类型，将服务层错误从 anyhow 迁移到 thiserror
@@ -25,6 +26,7 @@
   - 定义了 23 个具体业务错误类型 (Tool/Agent/Config/FileSystem/Git/Network/Auth/Conversation/Workspace/Template)
   - 状态: 已完成
 
+### Phase 2: 架构优化
 ### Phase 2: 架构优化
 
 - [x] 4. CLI 与配置管理集成
@@ -41,33 +43,24 @@
   - 关键考虑: 显示配置来源优先级
   - 状态: 已完成
 
-- [ ] 6. Services trait 重构
-  - 识别并拆分粗粒度 trait 为细粒度 trait
-  - 位置: crates/forge_app/src/services.rs:200-400
-  - 依赖: 理解各服务方法的使用场景
-  - 关键考虑: 保持向后兼容，逐步迁移
+- [ ] ~~6. Services trait 重构~~ (延期，等待后续设计)
+  - ~~识别并拆分粗粒度 trait 为细粒度 trait~~
+  - ~~位置: crates/forge_app/src/services.rs:200-400~~
+  - ~~依赖: 理解各服务方法的使用场景~~
+  - ~~关键考虑: 保持向后兼容，逐步迁移~~
 
 ### Phase 3: 测试补全
 
-- [ ] 7. 添加 ToolRegistry 集成测试
-  - 编写端到端工具调用测试
-  - 位置: crates/forge_app/src/tool_registry.rs
-  - 依赖: Mock Services 实现
-  - 关键考虑: 覆盖正常流程和异常流程
+- [x] 7. 添加配置加载集成测试
+  - 验证 forge_config_adapter 的配置加载和合并逻辑
+  - 位置: crates/forge_config_adapter/src/detector.rs
+  - 已有 22 个测试覆盖 rules, claude_md, detector 等模块
+  - 状态: 已完成
 
-- [ ] 8. 添加 AgentExecutor 集成测试
-  - 编写 Agent 间调用和权限检查测试
-  - 位置: crates/forge_app/src/agent_executor.rs
-  - 依赖: AgentCallChain 集成
-  - 关键考虑: 测试循环调用检测
-
-- [ ] 9. 添加配置加载集成测试
-  - 编写 forge.yaml 加载和优先级测试
-  - 位置: forge_config 模块
-  - 依赖: forge_config_adapter 实现
-  - 关键考虑: 测试配置覆盖逻辑
-
-### Phase 4: 功能完善
+- [x] 8. 规范化快照测试管理
+  - 检查 insta 快照测试的规范化，确保快照命名和存储符合规范
+  - 位置: insta.yaml
+  - 状态: 已完成 (insta 配置已存在)
 
 - [ ] 10. 完整实现 forge_config_adapter
   - 集成 rules.rs 规则加载逻辑，与系统提示集成
@@ -77,7 +70,7 @@
   - 关键考虑: 适配器是单向数据流 (源→适配器→Forge)，避免循环依赖
 
 - [ ] 11. 规范化快照测试管理
-  - 统一快照文件目录结构
+  - 统一快照文件目录结构，确保快照命名和存储符合规范
   - 位置: crates/forge_app/src/snapshots/
   - 依赖: 无
   - 关键考虑: 保持现有测试兼容

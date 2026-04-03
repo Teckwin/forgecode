@@ -148,11 +148,13 @@ impl<S: Services> ToolRegistry<S> {
             // but any tools the agent calls ARE permission-controlled
             let permission_check = self
                 .services
-                .check_operation_permission(&forge_domain::policies::PermissionOperation::AgentCall {
-                    agent_id: agent_id.clone(),
-                    cwd: self.services.get_environment().cwd.clone(),
-                    message: format!("Call agent: {}", agent_id.as_str()),
-                })
+                .check_operation_permission(
+                    &forge_domain::policies::PermissionOperation::AgentCall {
+                        agent_id: agent_id.clone(),
+                        cwd: self.services.get_environment().cwd.clone(),
+                        message: format!("Call agent: {}", agent_id.as_str()),
+                    },
+                )
                 .await?;
             if !permission_check.allowed {
                 return Err(Error::PermissionDenied {
@@ -446,10 +448,11 @@ mod tests {
 
     #[test]
     fn test_error_permission_denied_display() {
-        let error = Error::PermissionDenied {
-            operation: "agent:test_agent".to_string(),
-        };
-        assert_eq!(error.to_string(), "Permission denied for operation: agent:test_agent");
+        let error = Error::PermissionDenied { operation: "agent:test_agent".to_string() };
+        assert_eq!(
+            error.to_string(),
+            "Permission denied for operation: agent:test_agent"
+        );
     }
 
     #[test]
