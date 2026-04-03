@@ -4,7 +4,7 @@
 //! This runs on startup to seamlessly migrate external configs to Forge's format.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
@@ -23,15 +23,30 @@ pub struct MigrationResult {
 }
 
 /// Auto-migrator for external configs
-pub struct ConfigAutoMigrator;
+pub struct ConfigAutoMigrator {
+    cwd: PathBuf,
+}
 
 impl ConfigAutoMigrator {
+    /// Creates a new ConfigAutoMigrator with the given working directory
+    pub fn new(cwd: PathBuf) -> Self {
+        Self { cwd }
+    }
+
+    /// Auto-migrate external configs to Forge's format
+    ///
+    /// This is the main entry point for automatic migration.
+    /// It detects external configs, converts them, and merges them into Forge's config.
+    pub fn auto_migrate(&self) -> Result<MigrationResult> {
+        self.detect_and_convert()
+    }
+
     /// Auto-detect and convert external configs
     ///
     /// This scans for known external config files and converts them to Forge's format.
     /// Returns the converted config if any were found.
-    pub fn detect_and_convert(cwd: &Path) -> Result<MigrationResult> {
-        let configs = ConfigDetector::detect_all(cwd);
+    pub fn detect_and_convert(&self) -> Result<MigrationResult> {
+        let configs = ConfigDetector::detect_all(&self.cwd);
 
         if configs.is_empty() {
             return Ok(MigrationResult { migrated: false, sources: vec![], converted: None });
@@ -46,7 +61,7 @@ impl ConfigAutoMigrator {
                 crate::detector::ConfigSource::Unknown => "unknown".to_string(),
             };
 
-            match Self::convert_config(&config.path) {
+            match self.convert_config(&config.path) {
                 Ok(converted) => {
                     // Merge permissions
                     if !converted.permissions.allow.is_empty() {
@@ -100,15 +115,15 @@ impl ConfigAutoMigrator {
     }
 
     /// Convert a single config file
-    fn convert_config(path: &Path) -> Result<ConvertedConfig> {
+    fn convert_config(&self, path: &Path) -> Result<ConvertedConfig> {
         let settings = ClaudeCodeParser::parse(path)?;
         let converted = ClaudeCodeToForgeConverter::convert(settings)?;
         Ok(converted)
     }
 
     /// Check if any external configs exist (quick check without parsing)
-    pub fn has_external_configs(cwd: &Path) -> bool {
-        ConfigDetector::has_external_configs(cwd)
+    pub fn has_external_configs(&self) -> bool {
+        ConfigDetector::has_external_configs(&self.cwd)
     }
 }
 
@@ -143,7 +158,8 @@ mod tests {
     #[test]
     fn test_no_configs_returns_none() {
         let temp_dir = std::env::temp_dir();
-        let result = ConfigAutoMigrator::detect_and_convert(&temp_dir).unwrap();
+        let migrator = ConfigAutoMigrator::new(temp_dir);
+        let result = migrator.detect_and_convert().unwrap();
         // May or may not have configs depending on test environment
         assert!(result.converted.is_none() || result.converted.is_some());
     }

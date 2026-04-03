@@ -10,6 +10,7 @@ use forge_app::{
     FileDiscoveryService, ForgeApp, GitApp, GrpcInfra, McpConfigManager, McpService,
     ProviderAuthService, ProviderService, Services, User, UserUsage, Walker, WorkspaceService,
 };
+use forge_config_adapter::ConfigAutoMigrator;
 use forge_domain::{Agent, ConsoleWriter, *};
 use forge_infra::ForgeInfra;
 use forge_repo::ForgeRepo;
@@ -41,8 +42,15 @@ impl<A, F> ForgeAPI<A, F> {
 
 impl ForgeAPI<ForgeServices<ForgeRepo<ForgeInfra>>, ForgeRepo<ForgeInfra>> {
     pub fn init(cwd: PathBuf) -> Self {
-        let infra = Arc::new(ForgeInfra::new(cwd));
+        let infra = Arc::new(ForgeInfra::new(cwd.clone()));
         let repo = Arc::new(ForgeRepo::new(infra.clone()));
+
+        // Auto-migrate external configs (e.g., Claude Code settings.json)
+        let migrator = ConfigAutoMigrator::new(cwd);
+        if let Err(e) = migrator.auto_migrate() {
+            tracing::warn!("Failed to auto-migrate external configs: {}", e);
+        }
+
         let app = Arc::new(ForgeServices::new(repo.clone()));
         ForgeAPI::new(app, repo)
     }
