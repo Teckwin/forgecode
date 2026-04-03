@@ -157,7 +157,6 @@ impl<R: SkillRepository + EnvironmentInfra> forge_app::SkillRegistry
 
 #[cfg(test)]
 mod tests {
-    
 
     use super::*;
 
