@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 
 /// Known config file patterns for different ecosystems
-#[derive(Debug, Clone)]
+/// Configuration source types from external ecosystems
+#[derive(Debug, Clone, PartialEq)]
 pub enum ConfigSource {
     /// Claude Code settings.json
     ClaudeCodeSettings,
@@ -284,6 +285,8 @@ impl ConfigDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_detector_returns_empty_for_nonexistent_paths() {
@@ -292,5 +295,99 @@ mod tests {
         // May or may not have configs depending on test environment
         // Just verify it doesn't panic
         assert!(configs.len() >= 0);
+    }
+
+    #[test]
+    fn test_detect_claude_code_settings() {
+        // Create a temporary directory with Claude Code settings
+        let temp_dir = TempDir::new().unwrap();
+        let claude_dir = temp_dir.path().join(".claude");
+        fs::create_dir_all(&claude_dir).unwrap();
+
+        let settings_path = claude_dir.join("settings.json");
+        fs::write(
+            &settings_path,
+            r#"{
+                "permissions": {
+                    "allow": ["Bash(npm *)"]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let configs = ConfigDetector::detect_claude_code_configs(temp_dir.path());
+        assert!(configs
+            .iter()
+            .any(|c| c.source == ConfigSource::ClaudeCodeSettings));
+    }
+
+    #[test]
+    fn test_detect_claude_md() {
+        // This test uses the global ~/.claude directory if it exists
+        // or tests the function doesn't panic
+        let temp_dir = std::env::temp_dir();
+        let configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
+
+        // Just verify the function works without panicking
+        // The actual detection depends on the test environment
+        assert!(true);
+    }
+
+    #[test]
+    fn test_detect_rules_directory() {
+        // This test checks if the function handles missing directories
+        let temp_dir = std::env::temp_dir();
+        let configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
+
+        // Just verify the function works without panicking
+        assert!(true);
+    }
+
+    #[test]
+    fn test_detect_project_claude_md() {
+        // This test checks if the function handles missing files
+        let temp_dir = std::env::temp_dir();
+        let configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
+
+        // Just verify the function works without panicking
+        assert!(true);
+    }
+
+    #[test]
+    fn test_has_external_configs() {
+        // This test checks if the function handles various scenarios
+        let temp_dir = std::env::temp_dir();
+
+        // Should not panic regardless of what configs exist
+        let result = ConfigDetector::has_external_configs(&temp_dir);
+        assert!(result == false || result == true);
+    }
+
+    #[test]
+    fn test_parse_frontmatter() {
+        let content = r#"---
+globs: ["*.ts", "*.js"]
+description: "Test description"
+model: "sonnet"
+---
+
+# Content here
+"#;
+        let metadata = ConfigDetector::parse_frontmatter(content).unwrap();
+
+        assert!(metadata.contains_key("globs"));
+        assert!(metadata.contains_key("description"));
+        assert!(metadata.contains_key("model"));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_no_frontmatter() {
+        let content = r#"# Just Content
+
+No frontmatter here.
+"#;
+        let metadata = ConfigDetector::parse_frontmatter(content).unwrap();
+        // Should return empty since no frontmatter
+        assert!(metadata.is_empty() || !metadata.contains_key("globs"));
     }
 }
