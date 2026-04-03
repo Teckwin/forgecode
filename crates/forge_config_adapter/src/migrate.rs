@@ -4,7 +4,7 @@
 //! This runs on startup to seamlessly migrate external configs to Forge's format.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::Result;
 
@@ -30,7 +30,7 @@ impl ConfigAutoMigrator {
     ///
     /// This scans for known external config files and converts them to Forge's format.
     /// Returns the converted config if any were found.
-    pub fn detect_and_convert(cwd: &PathBuf) -> Result<MigrationResult> {
+    pub fn detect_and_convert(cwd: &Path) -> Result<MigrationResult> {
         let configs = ConfigDetector::detect_all(cwd);
 
         if configs.is_empty() {
@@ -100,14 +100,14 @@ impl ConfigAutoMigrator {
     }
 
     /// Convert a single config file
-    fn convert_config(path: &PathBuf) -> Result<ConvertedConfig> {
+    fn convert_config(path: &Path) -> Result<ConvertedConfig> {
         let settings = ClaudeCodeParser::parse(path)?;
         let converted = ClaudeCodeToForgeConverter::convert(settings)?;
         Ok(converted)
     }
 
     /// Check if any external configs exist (quick check without parsing)
-    pub fn has_external_configs(cwd: &PathBuf) -> bool {
+    pub fn has_external_configs(cwd: &Path) -> bool {
         ConfigDetector::has_external_configs(cwd)
     }
 }

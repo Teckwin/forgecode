@@ -1,7 +1,7 @@
 //! Claude Code settings.json parser and converter
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -121,7 +121,7 @@ pub struct ClaudeCodeParser;
 
 impl ClaudeCodeParser {
     /// Parse a Claude Code settings.json file
-    pub fn parse(path: &PathBuf) -> Result<ClaudeCodeSettings> {
+    pub fn parse(path: &Path) -> Result<ClaudeCodeSettings> {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("Failed to read settings.json from {:?}", path))?;
 
@@ -130,7 +130,7 @@ impl ClaudeCodeParser {
     }
 
     /// Check if a file is a valid Claude Code settings.json
-    pub fn is_valid(path: &PathBuf) -> bool {
+    pub fn is_valid(path: &Path) -> bool {
         Self::parse(path).is_ok()
     }
 }
