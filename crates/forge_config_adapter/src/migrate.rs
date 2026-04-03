@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 
 use crate::claude_code::{ClaudeCodeParser, ClaudeCodeToForgeConverter, ConvertedConfig};
-use crate::detector::ConfigDetector;
+use crate::claude_md::{ClaudeMdParser, ClaudeMdToForgeConverter};
+use crate::detector::{ConfigDetector, ConfigSource};
+use crate::rules::{RulesParser, RulesToForgeConverter};
 
 /// Auto-migration result
 #[derive(Debug, Clone)]
@@ -66,7 +68,7 @@ impl ConfigAutoMigrator {
                 crate::detector::ConfigSource::Unknown => "unknown".to_string(),
             };
 
-            match self.convert_config(&config.path) {
+            match self.convert_config(config.source, &config.path) {
                 Ok(converted) => {
                     // Merge permissions
                     if !converted.permissions.allow.is_empty() {
@@ -119,11 +121,41 @@ impl ConfigAutoMigrator {
         })
     }
 
-    /// Convert a single config file
-    fn convert_config(&self, path: &Path) -> Result<ConvertedConfig> {
-        let settings = ClaudeCodeParser::parse(path)?;
-        let converted = ClaudeCodeToForgeConverter::convert(settings)?;
-        Ok(converted)
+    /// Convert a single config file based on its source type
+    fn convert_config(&self, source: ConfigSource, path: &Path) -> Result<ConvertedConfig> {
+        match source {
+            ConfigSource::ClaudeCodeSettings | ConfigSource::ClaudeCodeSettingsLocal => {
+                // JSON settings file
+                let settings = ClaudeCodeParser::parse(path)?;
+                let converted = ClaudeCodeToForgeConverter::convert(settings)?;
+                Ok(converted)
+            }
+            ConfigSource::ClaudeCodeMd => {
+                // CLAUDE.md file
+                let instruction = ClaudeMdParser::parse(path)?;
+                let converted = ClaudeMdToForgeConverter::convert(instruction)?;
+                Ok(converted)
+            }
+            ConfigSource::ClaudeCodeRules => {
+                // rules/*.md file
+                let rule = RulesParser::parse(path)?;
+                let converted = RulesToForgeConverter::convert(vec![rule])?;
+                Ok(converted)
+            }
+            ConfigSource::Unknown => {
+                // Try JSON first, then markdown
+                if let Ok(settings) = ClaudeCodeParser::parse(path) {
+                    let converted = ClaudeCodeToForgeConverter::convert(settings)?;
+                    return Ok(converted);
+                }
+                if let Ok(instruction) = ClaudeMdParser::parse(path) {
+                    let converted = ClaudeMdToForgeConverter::convert(instruction)?;
+                    return Ok(converted);
+                }
+                // Return empty config for unknown types
+                Ok(ConvertedConfig::default())
+            }
+        }
     }
 
     /// Check if any external configs exist (quick check without parsing)
