@@ -222,8 +222,7 @@ impl FromStr for AutoDumpFormat {
     }
 }
 
-/// Unified configuration structure for .forge/settings.yaml or .forge/settings.json
-/// Supports both YAML and JSON formats for Claude Code protocol compatibility.
+/// Unified configuration structure for .forge/settings.yaml
 /// This file consolidates provider, MCP, and system settings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -242,7 +241,7 @@ pub struct SettingConfig {
     pub doctor: Option<SettingDoctorConfig>,
 }
 
-/// Provider configuration within settings.yaml or settings.json
+/// Provider configuration within settings.yaml
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SettingProviderConfig {
@@ -498,17 +497,10 @@ impl Environment {
         self.cwd.join("AGENTS.md")
     }
 
-    /// Returns the project-local settings path (.forge/settings.yaml or .forge/settings.json)
+    /// Returns the project-local settings path (.forge/settings.yaml)
     /// This is the unified configuration file that contains provider, mcp, and system settings.
-    /// Supports both YAML and JSON formats for Claude Code protocol compatibility.
     pub fn settings_path(&self) -> PathBuf {
         self.cwd.join(".forge/settings.yaml")
-    }
-
-    /// Returns the project-local settings path with JSON extension
-    /// (.forge/settings.json) for Claude Code protocol compatibility.
-    pub fn settings_json_path(&self) -> PathBuf {
-        self.cwd.join(".forge/settings.json")
     }
 
     /// Returns the project-local tools directory path (.forge/tools)
@@ -819,17 +811,6 @@ mod tests {
     }
 
     #[test]
-    fn test_settings_json_path() {
-        let fixture: Environment = Faker.fake();
-        let fixture = fixture.cwd(PathBuf::from("/projects/my-app"));
-
-        let actual = fixture.settings_json_path();
-        let expected = PathBuf::from("/projects/my-app/.forge/settings.json");
-
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
     fn test_tools_path() {
         let fixture: Environment = Faker.fake();
         let fixture = fixture.cwd(PathBuf::from("/projects/my-app"));
@@ -848,15 +829,12 @@ mod tests {
             .base_path(PathBuf::from("/home/user/.forge"));
 
         let settings_path = fixture.settings_path();
-        let settings_json_path = fixture.settings_json_path();
         let tools_path = fixture.tools_path();
 
         let expected_settings = PathBuf::from("/projects/my-app/.forge/settings.yaml");
-        let expected_settings_json = PathBuf::from("/projects/my-app/.forge/settings.json");
         let expected_tools = PathBuf::from("/projects/my-app/.forge/tools");
 
         assert_eq!(settings_path, expected_settings);
-        assert_eq!(settings_json_path, expected_settings_json);
         assert_eq!(tools_path, expected_tools);
     }
 
