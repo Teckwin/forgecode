@@ -379,6 +379,17 @@ pub trait AgentRepository: Send + Sync {
     async fn get_agents(&self) -> anyhow::Result<Vec<forge_domain::AgentDefinition>>;
 }
 
+/// Extended agent repository with dynamic create/delete operations
+/// Requires additional infrastructure traits for file operations
+#[async_trait::async_trait]
+pub trait AgentRepositoryExt: AgentRepository + Send + Sync {
+    /// Create a new agent definition and persist it to the agents directory.
+    async fn create_agent(&self, agent: forge_domain::Agent) -> anyhow::Result<()>;
+
+    /// Delete an agent by ID from the agents directory.
+    async fn delete_agent(&self, agent_id: &str) -> anyhow::Result<()>;
+}
+
 /// Infrastructure trait for providing shared gRPC channel
 ///
 /// This trait provides access to a shared gRPC channel for communicating with

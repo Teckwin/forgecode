@@ -185,6 +185,17 @@ pub trait SkillRepository: Send + Sync {
     async fn load_skills(&self) -> Result<Vec<Skill>>;
 }
 
+/// Extended skill repository with dynamic create/delete operations
+/// Requires additional infrastructure traits for file operations
+#[async_trait::async_trait]
+pub trait SkillRepositoryExt: SkillRepository + Send + Sync {
+    /// Create a new skill and persist it to the skills directory
+    async fn create_skill(&self, skill: Skill) -> Result<()>;
+
+    /// Delete a skill by name from the skills directory
+    async fn delete_skill(&self, skill_name: &str) -> Result<()>;
+}
+
 /// Repository for validating file syntax
 ///
 /// This repository provides operations for validating the syntax of source

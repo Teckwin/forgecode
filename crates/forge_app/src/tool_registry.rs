@@ -141,14 +141,30 @@ impl<S: Services> ToolRegistry<S> {
             // Handle agent delegation tool calls
             let agent_input = AgentInput::try_from(&input)?;
             let executor = self.agent_executor.clone();
-            // NOTE: Agents should not timeout
-            let outputs =
-                join_all(agent_input.tasks.into_iter().map(|task| {
-                    executor.execute(AgentId::new(input.name.as_str()), task, context)
-                }))
+            let agent_id = AgentId::new(input.name.as_str());
+
+            // Execute based on strategy: parallel (default) or sequential
+            let outputs = if agent_input.strategy == "sequential" {
+                // Sequential: execute tasks one by one, passing results to next
+                let mut accumulated_results = Vec::new();
+                for task in agent_input.tasks {
+                    let result = executor.execute(agent_id.clone(), task, context).await?;
+                    accumulated_results.push(result);
+                }
+                accumulated_results
+            } else {
+                // Parallel (default): execute all tasks concurrently
+                join_all(
+                    agent_input
+                        .tasks
+                        .into_iter()
+                        .map(|task| executor.execute(agent_id.clone(), task, context)),
+                )
                 .await
                 .into_iter()
-                .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<anyhow::Result<Vec<_>>>()?
+            };
+
             Ok(ToolOutput::from(outputs.into_iter()))
         } else if self.mcp_executor.contains_tool(&input.name).await? {
             let output = self

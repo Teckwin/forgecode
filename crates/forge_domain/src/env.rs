@@ -222,6 +222,162 @@ impl FromStr for AutoDumpFormat {
     }
 }
 
+/// Unified configuration structure for .forge/settings.yaml
+/// This file consolidates provider, MCP, and system settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingConfig {
+    /// Provider configuration section
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<SettingProviderConfig>,
+    /// MCP servers configuration section
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mcp: Option<SettingMcpConfig>,
+    /// System configuration section
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system: Option<SettingSystemConfig>,
+    /// Doctor command configuration section
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doctor: Option<SettingDoctorConfig>,
+}
+
+/// Provider configuration within settings.yaml
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingProviderConfig {
+    /// Default provider ID
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    /// Anthropic provider settings
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anthropic: Option<SettingProviderDetails>,
+    /// OpenAI provider settings
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openai: Option<SettingProviderDetails>,
+    /// Agent-level overrides
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub agents: Vec<SettingAgentOverride>,
+}
+
+/// Provider details (api_key, model, parameters)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingProviderDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<SettingProviderParameters>,
+}
+
+/// Provider parameters (temperature, max_tokens, etc.)
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingProviderParameters {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<usize>,
+}
+
+/// Agent-level provider override
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingAgentOverride {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<SettingProviderParameters>,
+}
+
+/// MCP configuration within settings.yaml or settings.json
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingMcpConfig {
+    /// MCP server definitions
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub servers: Vec<SettingMcpServer>,
+}
+
+/// MCP server definition
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingMcpServer {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub command: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub args: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub env: std::collections::HashMap<String, String>,
+}
+
+/// System configuration within settings.yaml or settings.json
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingSystemConfig {
+    /// Context compaction settings
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compact: Option<SettingCompactConfig>,
+    /// Log configuration
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub log: Option<SettingLogConfig>,
+    /// Security settings
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub security: Option<SettingSecurityConfig>,
+}
+
+/// Compact configuration within system section
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingCompactConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strategy: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_turns: Option<usize>,
+}
+
+/// Log configuration within system section
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingLogConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+}
+
+/// Security configuration within system section
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingSecurityConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_shell: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_network: Option<bool>,
+}
+
+/// Doctor command configuration
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingDoctorConfig {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_fix: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backup_dir: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub check_interval: Option<u64>,
+}
+
 impl Environment {
     /// Applies a single [`ConfigOperation`] to this environment in-place.
     pub fn apply_op(&mut self, op: ConfigOperation) {
@@ -341,10 +497,22 @@ impl Environment {
         self.cwd.join("AGENTS.md")
     }
 
+    /// Returns the project-local settings path (.forge/settings.yaml)
+    /// This is the unified configuration file that contains provider, mcp, and system settings.
+    pub fn settings_path(&self) -> PathBuf {
+        self.cwd.join(".forge/settings.yaml")
+    }
+
+    /// Returns the project-local tools directory path (.forge/tools)
+    /// This directory contains custom tool definitions.
+    pub fn tools_path(&self) -> PathBuf {
+        self.cwd.join(".forge/tools")
+    }
+
     /// Returns the plans directory path relative to the current working
-    /// directory (cwd/plans)
+    /// directory (.forge/plans)
     pub fn plans_path(&self) -> PathBuf {
-        self.cwd.join("plans")
+        self.cwd.join(".forge/plans")
     }
 
     /// Returns the path to the custom provider configuration file
@@ -626,9 +794,48 @@ mod tests {
         let fixture = fixture.cwd(PathBuf::from("/projects/my-app"));
 
         let actual = fixture.plans_path();
-        let expected = PathBuf::from("/projects/my-app/plans");
+        let expected = PathBuf::from("/projects/my-app/.forge/plans");
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_settings_path() {
+        let fixture: Environment = Faker.fake();
+        let fixture = fixture.cwd(PathBuf::from("/projects/my-app"));
+
+        let actual = fixture.settings_path();
+        let expected = PathBuf::from("/projects/my-app/.forge/settings.yaml");
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_tools_path() {
+        let fixture: Environment = Faker.fake();
+        let fixture = fixture.cwd(PathBuf::from("/projects/my-app"));
+
+        let actual = fixture.tools_path();
+        let expected = PathBuf::from("/projects/my-app/.forge/tools");
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_settings_and_tools_paths_use_cwd() {
+        let fixture: Environment = Faker.fake();
+        let fixture = fixture
+            .cwd(PathBuf::from("/projects/my-app"))
+            .base_path(PathBuf::from("/home/user/.forge"));
+
+        let settings_path = fixture.settings_path();
+        let tools_path = fixture.tools_path();
+
+        let expected_settings = PathBuf::from("/projects/my-app/.forge/settings.yaml");
+        let expected_tools = PathBuf::from("/projects/my-app/.forge/tools");
+
+        assert_eq!(settings_path, expected_settings);
+        assert_eq!(tools_path, expected_tools);
     }
 
     #[test]
@@ -640,5 +847,79 @@ mod tests {
         let expected = PathBuf::from("/home/user/.forge/provider.json");
 
         assert_eq!(actual, expected);
+    }
+
+    // Tests for SettingConfig parsing
+    #[test]
+    fn test_setting_config_parse_minimal() {
+        let yaml = r#"
+provider:
+  default: anthropic
+"#;
+        let config: SettingConfig = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(
+            config.provider.as_ref().and_then(|p| p.default.as_deref()),
+            Some("anthropic")
+        );
+    }
+
+    #[test]
+    fn test_setting_config_parse_full() {
+        let yaml = r#"
+provider:
+  default: anthropic
+  anthropic:
+    apiKey: "${ANTHROPIC_API_KEY}"
+    model: "claude-sonnet-4-20250514"
+  agents:
+    - id: "sage"
+      model: "claude-opus-4-20250514"
+
+mcp:
+  servers:
+    - name: "filesystem"
+      command: "npx"
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "./"]
+
+system:
+  compact:
+    enabled: true
+    maxTokens: 100000
+"#;
+        let config: SettingConfig = serde_yml::from_str(yaml).unwrap();
+        assert_eq!(
+            config.provider.as_ref().and_then(|p| p.default.as_deref()),
+            Some("anthropic")
+        );
+        assert_eq!(config.mcp.as_ref().map(|m| m.servers.len()), Some(1));
+        // compact is Option<Option<SettingCompactConfig>>, flatten to get Option<bool>
+        let compact_enabled = config
+            .system
+            .as_ref()
+            .and_then(|s| s.compact.as_ref())
+            .and_then(|c| c.enabled);
+        assert_eq!(compact_enabled, Some(true));
+    }
+
+    #[test]
+    fn test_setting_config_missing_optional_fields() {
+        let yaml = r#"
+# Empty config - all fields are optional
+"#;
+        let config: SettingConfig = serde_yml::from_str(yaml).unwrap();
+        assert!(config.provider.is_none());
+        assert!(config.mcp.is_none());
+        assert!(config.system.is_none());
+    }
+
+    #[test]
+    fn test_setting_config_invalid_yaml() {
+        let yaml = r#"
+provider:
+  - invalid: list
+    structure: here
+"#;
+        let result: Result<SettingConfig, _> = serde_yml::from_str(yaml);
+        assert!(result.is_err());
     }
 }

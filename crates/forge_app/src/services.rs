@@ -479,6 +479,12 @@ pub trait AgentRegistry: Send + Sync {
 
     /// Reload agents by invalidating the cache
     async fn reload_agents(&self) -> anyhow::Result<()>;
+
+    /// Create a new agent dynamically and persist to filesystem
+    async fn create_agent(&self, agent: forge_domain::Agent) -> anyhow::Result<()>;
+
+    /// Delete an agent by ID from the registry and filesystem
+    async fn delete_agent(&self, agent_id: &AgentId) -> anyhow::Result<()>;
 }
 
 #[async_trait::async_trait]
@@ -921,6 +927,16 @@ impl<I: Services> AgentRegistry for I {
 
     async fn reload_agents(&self) -> anyhow::Result<()> {
         self.agent_registry().reload_agents().await
+    }
+
+    /// Create a new agent dynamically and persist it to the agents directory.
+    async fn create_agent(&self, agent: forge_domain::Agent) -> anyhow::Result<()> {
+        self.agent_registry().create_agent(agent).await
+    }
+
+    /// Delete an agent by ID from the agents directory.
+    async fn delete_agent(&self, agent_id: &AgentId) -> anyhow::Result<()> {
+        self.agent_registry().delete_agent(agent_id).await
     }
 }
 
