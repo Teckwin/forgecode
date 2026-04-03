@@ -22,6 +22,7 @@ mod provider_service;
 mod range;
 mod skill_registry;
 mod template;
+mod tool_scheduler_test;
 mod tool_services;
 mod utils;
 
