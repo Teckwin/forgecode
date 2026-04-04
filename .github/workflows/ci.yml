@@ -54,35 +54,6 @@ jobs:
     - name: Test
       run: cargo test --workspace --all-features
 
-  # Autofix: clippy + fmt (runs on PR, creates auto-fix PR)
-  autofix:
-    if: github.event_name == 'pull_request'
-    name: Autofix
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v6
-    - name: Install SQLite
-      run: sudo apt-get install -y libsqlite3-dev
-    - name: Setup Protobuf Compiler
-      uses: arduino/setup-protoc@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Setup Rust Toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: nightly
-        components: clippy, rustfmt
-    - name: Cargo Fmt
-      run: cargo +nightly fmt --all
-    - name: Cargo Clippy
-      run: cargo +nightly clippy --all-features --all-targets --workspace --fix --allow-dirty -- -D warnings
-    - name: Autofix
-      uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
-
   # Full validation: clippy + fmt + doc tests (only on PR)
   lint:
     if: github.event_name == 'pull_request'

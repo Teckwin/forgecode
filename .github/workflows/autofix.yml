@@ -1,0 +1,45 @@
+# Autofix workflow - runs clippy and fmt auto-fix
+# Note: This must remain a separate workflow (not merged) due to autofix-ci action requirements
+# The action requires the workflow name to be "autofix.ci"
+
+name: autofix.ci
+env:
+  RUSTFLAGS: '-Dwarnings'
+'on':
+  pull_request:
+    types:
+    - opened
+    - synchronize
+    - reopened
+    branches:
+    - main
+jobs:
+  lint:
+    name: Lint Fix
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v6
+    - name: Install SQLite
+      run: sudo apt-get install -y libsqlite3-dev
+    - name: Setup Protobuf Compiler
+      uses: arduino/setup-protoc@v3
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Setup Rust Toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: nightly
+        components: clippy, rustfmt
+    - name: Cargo Fmt
+      run: cargo +nightly fmt --all
+    - name: Cargo Clippy
+      run: cargo +nightly clippy --all-features --all-targets --workspace --fix --allow-dirty -- -D warnings
+    - name: Autofix
+      uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8
+concurrency:
+  group: autofix-${{github.ref}}
+  cancel-in-progress: false
