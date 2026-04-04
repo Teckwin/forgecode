@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use forge_domain::{CodebaseQueryResult, ToolCallContext, ToolCatalog, ToolKind, ToolOutput};
+use tokio::task::JoinSet;
 
 use crate::fmt::content::FormatContent;
 use crate::operation::{TempContentFiles, ToolOperation};
@@ -472,5 +473,76 @@ impl<
             }
             PathSafety::Denied(reason) => Err(anyhow!(reason)),
         }
+    }
+
+    /// Executes multiple tools in parallel, returning results in order.
+    ///
+    /// # Arguments
+    /// * `tools` - Vector of tool inputs to execute
+    /// * `context` - Tool call context
+    ///
+    /// # Returns
+    /// Vector of ToolOutput results in the same order as input tools.
+    /// If any tool fails, the error is included in its position.
+    #[allow(dead_code)]
+    pub async fn execute_parallel(
+        &self,
+        tools: Vec<ToolCatalog>,
+        context: &ToolCallContext,
+    ) -> Vec<anyhow::Result<ToolOutput>> {
+        let mut join_set = JoinSet::new();
+
+        // Spawn all tasks
+        for tool in tools {
+            let executor = Self { services: Arc::clone(&self.services) };
+            let ctx = context.clone();
+
+            join_set.spawn(async move { executor.execute(tool, &ctx).await });
+        }
+
+        // Collect results in order
+        let mut results = Vec::new();
+        while let Some(result) = join_set.join_next().await {
+            match result {
+                Ok(Ok(output)) => results.push(Ok(output)),
+                Ok(Err(e)) => results.push(Err(e)),
+                Err(join_error) => results.push(Err(anyhow!("Task join error: {}", join_error))),
+            }
+        }
+
+        results
+    }
+
+    /// Executes multiple tools in parallel, returning results as soon as they complete.
+    ///
+    /// Unlike `execute_parallel`, this method returns results in completion order
+    /// rather than input order.
+    #[allow(dead_code)]
+    pub async fn execute_parallel_unordered(
+        &self,
+        tools: Vec<ToolCatalog>,
+        context: &ToolCallContext,
+    ) -> Vec<anyhow::Result<ToolOutput>> {
+        let mut handles = Vec::new();
+
+        for tool in tools {
+            let executor = Self { services: Arc::clone(&self.services) };
+            let ctx = context.clone();
+
+            handles.push(tokio::spawn(
+                async move { executor.execute(tool, &ctx).await },
+            ));
+        }
+
+        let mut results = Vec::new();
+        for handle in handles {
+            match handle.await {
+                Ok(Ok(output)) => results.push(Ok(output)),
+                Ok(Err(e)) => results.push(Err(e)),
+                Err(join_error) => results.push(Err(anyhow!("Task join error: {}", join_error))),
+            }
+        }
+
+        results
     }
 }

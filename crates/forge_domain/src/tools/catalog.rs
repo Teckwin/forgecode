@@ -14,7 +14,9 @@ use serde_json::Map;
 use strum::IntoEnumIterator;
 use strum_macros::{AsRefStr, Display, EnumDiscriminants, EnumIter};
 
-use crate::{ToolCallArguments, ToolCallFull, ToolDefinition, ToolDescription, ToolName};
+use crate::{
+    ToolCallArguments, ToolCallFull, ToolCapabilities, ToolDefinition, ToolDescription, ToolName,
+};
 
 /// Enum representing all possible tool input types.
 ///
@@ -842,9 +844,32 @@ impl ToolCatalog {
     }
 
     pub fn definition(&self) -> ToolDefinition {
+        let capabilities = self.capabilities();
         ToolDefinition::new(self)
             .description(self.description())
             .input_schema(self.schema())
+            .capabilities(capabilities.unwrap_or_default())
+    }
+
+    /// Returns the capabilities for this tool based on its kind.
+    pub fn capabilities(&self) -> Option<ToolCapabilities> {
+        let kind = self.kind();
+        Some(ToolCapabilities {
+            streamable: matches!(kind, ToolKind::Shell),
+            parallel_calls: matches!(
+                kind,
+                ToolKind::FsSearch | ToolKind::SemSearch | ToolKind::Read | ToolKind::TodoRead
+            ),
+            idempotent: matches!(
+                kind,
+                ToolKind::FsSearch | ToolKind::SemSearch | ToolKind::Read | ToolKind::TodoRead
+            ),
+            estimated_duration_ms: match kind {
+                ToolKind::Shell => Some(30000),
+                ToolKind::Write | ToolKind::Patch | ToolKind::Remove => Some(5000),
+                _ => Some(1000),
+            },
+        })
     }
     pub fn contains(tool_name: &ToolName) -> bool {
         let normalized = normalize_tool_name(tool_name);
@@ -1161,7 +1186,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use strum::IntoEnumIterator;
 
-    use super::Shell;
+    use super::{FSRead, FSSearch, FSWrite, SemanticSearch, Shell};
     use crate::{ToolCatalog, ToolKind, ToolName};
 
     #[test]
@@ -1853,5 +1878,55 @@ mod tests {
             "Should parse whitespace-padded 'patch' tool name"
         );
         assert!(matches!(actual.unwrap(), ToolCatalog::Patch(_)));
+    }
+
+    #[test]
+    fn test_tool_capabilities_shell_is_streamable() {
+        let tool = ToolCatalog::Shell(Shell::default());
+        let caps = tool.capabilities();
+        assert!(caps.is_some());
+        let caps = caps.unwrap();
+        assert!(caps.streamable, "Shell tool should be streamable");
+    }
+
+    #[test]
+    fn test_tool_capabilities_read_supports_parallel() {
+        let tool = ToolCatalog::Read(FSRead::default());
+        let caps = tool.capabilities();
+        assert!(caps.is_some());
+        let caps = caps.unwrap();
+        assert!(
+            caps.parallel_calls,
+            "Read tool should support parallel calls"
+        );
+        assert!(caps.idempotent, "Read tool should be idempotent");
+    }
+
+    #[test]
+    fn test_tool_capabilities_search_supports_parallel() {
+        let fs_search = ToolCatalog::FsSearch(FSSearch::default());
+        let sem_search = ToolCatalog::SemSearch(SemanticSearch::default());
+
+        let fs_caps = fs_search.capabilities();
+        let sem_caps = sem_search.capabilities();
+
+        assert!(fs_caps.map(|c| c.parallel_calls).unwrap_or(false));
+        assert!(sem_caps.map(|c| c.parallel_calls).unwrap_or(false));
+    }
+
+    #[test]
+    fn test_tool_capabilities_write_not_idempotent() {
+        let tool = ToolCatalog::Write(FSWrite::default());
+        let caps = tool.capabilities();
+        assert!(caps.is_some());
+        let caps = caps.unwrap();
+        assert!(!caps.idempotent, "Write tool should not be idempotent");
+    }
+
+    #[test]
+    fn test_tool_definition_includes_capabilities() {
+        let tool = ToolCatalog::Shell(Shell::default());
+        let definition = tool.definition();
+        assert!(definition.capabilities.is_some());
     }
 }

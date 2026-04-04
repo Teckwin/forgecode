@@ -607,6 +607,7 @@ impl TryFrom<ToolDefinitionRecord> for forge_domain::ToolDefinition {
             name: record.name.into(),
             description: record.description,
             input_schema: serde_json::from_value(record.input_schema)?,
+            capabilities: None,
         })
     }
 }
