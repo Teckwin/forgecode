@@ -77,14 +77,17 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v6
     - name: Setup Protobuf Compiler
+      if: ${{ matrix.cross == 'false' }}
       uses: arduino/setup-protoc@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Setup Cross Toolchain
+      if: ${{ matrix.cross == 'false' }}
       uses: taiki-e/setup-cross-toolchain-action@v1
       with:
         target: ${{ matrix.target }}
     - name: Add Rust target
+      if: ${{ matrix.cross == 'false' }}
       run: rustup target add ${{ matrix.target }}
     - name: Set Rust Flags
       if: '!(contains(matrix.target, ''-unknown-linux-'') || contains(matrix.target, ''-android''))'

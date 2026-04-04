@@ -31,7 +31,8 @@ pub fn generate_ci_workflow() {
         );
 
     let draft_release_job = jobs::create_draft_release_job("build");
-    let draft_release_pr_job = jobs::create_draft_release_pr_job();
+    let draft_release_pr_job = jobs::create_draft_release_pr_job()
+        .cond(Expression::new("github.event_name == 'pull_request'"));
     let events = Event::default()
         .push(Push::default().add_branch("main").add_tag("v*"))
         .pull_request(
@@ -46,13 +47,7 @@ pub fn generate_ci_workflow() {
         ReleaseBuilderJob::new("${{ needs.draft_release_pr.outputs.crate_release_name }}")
             .into_job()
             .add_needs("draft_release_pr")
-            .cond(Expression::new(
-                [
-                    "github.event_name == 'pull_request'",
-                    "contains(github.event.pull_request.labels.*.name, 'ci: build all targets')",
-                ]
-                .join(" && "),
-            ));
+            .cond(Expression::new("github.event_name == 'pull_request'"));
     let build_release_job =
         ReleaseBuilderJob::new("${{ needs.draft_release.outputs.crate_release_name }}")
             .release_id("${{ needs.draft_release.outputs.crate_release_id }}")
