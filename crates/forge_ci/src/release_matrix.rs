@@ -74,13 +74,6 @@ impl Default for ReleaseMatrix {
                 binary_path: "target/aarch64-pc-windows-msvc/release/forge.exe",
                 cross: "false",
             },
-            MatrixEntry {
-                os: "ubuntu-latest",
-                target: "aarch64-linux-android",
-                binary_name: "forge-aarch64-linux-android",
-                binary_path: "target/aarch64-linux-android/release/forge",
-                cross: "true",
-            },
         ])
     }
 }
