@@ -326,9 +326,7 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let _configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
 
-        // Just verify the function works without panicking
         // The actual detection depends on the test environment
-        assert!(true);
     }
 
     #[test]
@@ -336,9 +334,6 @@ mod tests {
         // This test checks if the function handles missing directories
         let temp_dir = std::env::temp_dir();
         let _configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
-
-        // Just verify the function works without panicking
-        assert!(true);
     }
 
     #[test]
@@ -346,9 +341,6 @@ mod tests {
         // This test checks if the function handles missing files
         let temp_dir = std::env::temp_dir();
         let _configs = ConfigDetector::detect_claude_code_configs(&temp_dir);
-
-        // Just verify the function works without panicking
-        assert!(true);
     }
 
     #[test]
@@ -357,8 +349,7 @@ mod tests {
         let temp_dir = std::env::temp_dir();
 
         // Should not panic regardless of what configs exist
-        let result = ConfigDetector::has_external_configs(&temp_dir);
-        assert!(!result || result);
+        let _result = ConfigDetector::has_external_configs(&temp_dir);
     }
 
     #[test]
