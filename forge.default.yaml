@@ -75,7 +75,7 @@ variables:
   operating_agent: Forge
   advanced_model: &advanced_model anthropic/claude-sonnet-4
 
-max_requests_per_turn: 100
+max_requests_per_turn: 500
 max_tool_failure_per_turn: 3
 top_p: 0.8
 top_k: 30
