@@ -185,12 +185,10 @@ jobs:
       uses: actions/checkout@v6
     - name: Setup Protobuf Compiler for Cross Build
       if: ${{ matrix.cross == 'true' }}
-      run: |
-        # Install protoc in a user-accessible location for cross-compilation
-        curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v23.4/protoc-23.4-linux-x86_64.zip
-        unzip -o protoc-23.4-linux-x86_64.zip -d $HOME/protoc
-        echo "PROTOC=$HOME/protoc/bin/protoc" >> $GITHUB_ENV
-        echo "$HOME/protoc/bin" >> $GITHUB_PATH
+      uses: arduino/setup-protoc@v3
+      with:
+        version: '23.x'
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Setup Protobuf Compiler for Native Build
       if: ${{ matrix.cross == 'false' }}
       uses: arduino/setup-protoc@v3
@@ -286,12 +284,10 @@ jobs:
       uses: actions/checkout@v6
     - name: Setup Protobuf Compiler for Cross Build
       if: ${{ matrix.cross == 'true' }}
-      run: |
-        # Install protoc in a user-accessible location for cross-compilation
-        curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v23.4/protoc-23.4-linux-x86_64.zip
-        unzip -o protoc-23.4-linux-x86_64.zip -d $HOME/protoc
-        echo "PROTOC=$HOME/protoc/bin/protoc" >> $GITHUB_ENV
-        echo "$HOME/protoc/bin" >> $GITHUB_PATH
+      uses: arduino/setup-protoc@v3
+      with:
+        version: '23.x'
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Setup Protobuf Compiler for Native Build
       if: ${{ matrix.cross == 'false' }}
       uses: arduino/setup-protoc@v3
