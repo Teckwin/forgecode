@@ -14,6 +14,7 @@ mod fd_walker;
 mod forge_services;
 mod instructions;
 mod mcp;
+mod memory;
 mod policy;
 
 mod provider_auth;
@@ -31,6 +32,7 @@ pub use discovery::*;
 pub use error::*;
 pub use forge_services::*;
 pub use instructions::*;
+pub use memory::*;
 pub use policy::*;
 pub use provider_auth::*;
 
