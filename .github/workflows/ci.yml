@@ -189,11 +189,6 @@ jobs:
       with:
         version: '23.x'
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Setup Protobuf Compiler for Native Build
-      if: ${{ matrix.cross == 'false' }}
-      uses: arduino/setup-protoc@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Setup Cross Toolchain
       if: ${{ matrix.cross == 'false' }}
       uses: taiki-e/setup-cross-toolchain-action@v1
@@ -214,6 +209,7 @@ jobs:
         cross-version: '0.2.5'
       env:
         RUSTFLAGS: ${{ env.RUSTFLAGS }}
+        PROTOC: ${{ matrix.cross == 'true' && '/opt/hostedtoolcache/protoc/v23.4/x64/bin/protoc' || '' }}
         POSTHOG_API_SECRET: ${{secrets.POSTHOG_API_SECRET}}
         APP_VERSION: ${{ needs.draft_release.outputs.crate_release_name }}
     - name: Copy Binary
@@ -288,11 +284,6 @@ jobs:
       with:
         version: '23.x'
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Setup Protobuf Compiler for Native Build
-      if: ${{ matrix.cross == 'false' }}
-      uses: arduino/setup-protoc@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Setup Cross Toolchain
       if: ${{ matrix.cross == 'false' }}
       uses: taiki-e/setup-cross-toolchain-action@v1
@@ -313,6 +304,7 @@ jobs:
         cross-version: '0.2.5'
       env:
         RUSTFLAGS: ${{ env.RUSTFLAGS }}
+        PROTOC: ${{ matrix.cross == 'true' && '/opt/hostedtoolcache/protoc/v23.4/x64/bin/protoc' || '' }}
         POSTHOG_API_SECRET: ${{secrets.POSTHOG_API_SECRET}}
         APP_VERSION: ${{ needs.draft_release_pr.outputs.crate_release_name }}
 concurrency:
