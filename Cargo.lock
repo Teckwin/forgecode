@@ -18,6 +18,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-sandbox"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6831fb62228c479097b99b63a97d7f2a7ad35f028f1c56fc29529c789e7cf20d"
+dependencies = [
+ "anyhow",
+ "libc",
+ "multimap 0.9.1",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "url",
+ "which",
+ "windows 0.58.0",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -113,12 +132,6 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
-
-[[package]]
-name = "ascii"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d92bec98840b8f03a5ff5413de5293bfcd8bf96467cf5452609f939ec6f5de16"
 
 [[package]]
 name = "assert-json-diff"
@@ -748,12 +761,6 @@ dependencies = [
  "wasm-bindgen",
  "windows-link 0.2.1",
 ]
-
-[[package]]
-name = "chunked_transfer"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e4de3bc4ea267985becf712dc6d9eed8b04c953b3fcfb339ebc87acd9804901"
 
 [[package]]
 name = "clap"
@@ -1873,7 +1880,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "forge_app",
- "forge_config",
+ "forge_config_adapter",
  "forge_domain",
  "forge_infra",
  "forge_repo",
@@ -1882,6 +1889,7 @@ dependencies = [
  "futures",
  "serde_json",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -1901,11 +1909,9 @@ dependencies = [
  "derive_more",
  "derive_setters",
  "fake",
- "forge_config",
  "forge_display",
  "forge_domain",
  "forge_embed",
- "forge_json_repair",
  "forge_stream",
  "forge_template",
  "forge_test_kit",
@@ -1934,6 +1940,7 @@ dependencies = [
  "tonic",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -1951,6 +1958,7 @@ dependencies = [
 name = "forge_config"
 version = "0.1.0"
 dependencies = [
+ "ai-sandbox",
  "anyhow",
  "config",
  "derive_setters",
@@ -1958,16 +1966,30 @@ dependencies = [
  "dotenvy",
  "fake",
  "is_ci",
+ "merge",
  "pretty_assertions",
  "schemars 1.2.1",
  "serde",
  "serde_json",
- "strum_macros 0.28.0",
  "thiserror 2.0.18",
  "tokio",
  "toml_edit",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "forge_config_adapter"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "forge_domain",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "toml 0.8.23",
+ "tracing",
 ]
 
 [[package]]
@@ -1994,12 +2016,14 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "convert_case 0.11.0",
+ "dashmap",
  "derive-getters",
  "derive_more",
  "derive_setters",
  "eserde",
  "fake",
  "fnv_rs",
+ "forge_config",
  "forge_json_repair",
  "forge_template",
  "forge_test_kit",
@@ -2054,6 +2078,7 @@ dependencies = [
 name = "forge_infra"
 version = "0.1.0"
 dependencies = [
+ "ai-sandbox",
  "anyhow",
  "async-trait",
  "backon",
@@ -2129,7 +2154,6 @@ dependencies = [
  "fake",
  "forge_api",
  "forge_app",
- "forge_config",
  "forge_display",
  "forge_domain",
  "forge_embed",
@@ -2162,13 +2186,11 @@ dependencies = [
  "tempfile",
  "terminal_size",
  "thiserror 2.0.18",
- "tiny_http",
  "tokio",
  "tokio-stream",
  "tracing",
  "update-informer",
  "url",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2280,7 +2302,6 @@ dependencies = [
  "derive_setters",
  "fake",
  "forge_app",
- "forge_config",
  "forge_domain",
  "forge_fs",
  "forge_snaps",
@@ -4002,6 +4023,15 @@ dependencies = [
 
 [[package]]
 name = "multimap"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1a5d38b9b352dbd913288736af36af41c48d61b1a8cd34bcecd727561b7d511"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "multimap"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
@@ -4661,7 +4691,7 @@ dependencies = [
  "heck",
  "itertools 0.14.0",
  "log",
- "multimap",
+ "multimap 0.10.1",
  "once_cell",
  "petgraph",
  "prettyplease",
@@ -6454,18 +6484,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tiny_http"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "389915df6413a2e74fb181895f933386023c71110878cd0825588928e64cdc82"
-dependencies = [
- "ascii",
- "chunked_transfer",
- "httpdate",
- "log",
-]
-
-[[package]]
 name = "tinystr"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7291,6 +7309,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
+name = "which"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e84a603e7e0b1ce1aa1ee2b109c7be00155ce52df5081590d1ffb93f4f515cb2"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "whoami"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7362,6 +7389,16 @@ dependencies = [
 
 [[package]]
 name = "windows"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd04d41d93c4992d421894c18c8b43496aa748dd4c081bac0dc93eb0489272b6"
+dependencies = [
+ "windows-core 0.58.0",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows"
 version = "0.61.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9babd3a767a4c1aef6900409f85f5d53ce2544ccdfaa86dad48c91782c6d6893"
@@ -7401,6 +7438,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b2d95af1a8a14a3c7367e1ed4fc9c20e0a26e79551b1454d72583c97cc6610"
 dependencies = [
  "windows-core 0.62.2",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba6d44ec8c2591c134257ce647b7ea6b20335bf6379a27dac5f1641fcf59f99"
+dependencies = [
+ "windows-implement 0.58.0",
+ "windows-interface 0.58.0",
+ "windows-result 0.2.0",
+ "windows-strings 0.1.0",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -7464,6 +7514,17 @@ dependencies = [
 
 [[package]]
 name = "windows-implement"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "windows-implement"
 version = "0.60.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "053e2e040ab57b9dc951b72c264860db7eb3b0200ba345b4e4c3b14f67855ddf"
@@ -7482,6 +7543,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -7529,6 +7601,15 @@ dependencies = [
 
 [[package]]
 name = "windows-result"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d1043d8214f791817bab27572aaa8af63732e11bf84aa21a45a78d6c317ae0e"
+dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-result"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f42bd332cc6c8eac5af113fc0c1fd6a8fd2aa08a0119358686e5160d0586c6"
@@ -7543,6 +7624,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7781fa89eaf60850ac3d2da7af8e5242a5ea78d1a11c49bf2910bb5a73853eb5"
 dependencies = [
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd9b125c486025df0eabcb585e62173c6c9eddcec5d117d3b6e8c30e2ee4d10"
+dependencies = [
+ "windows-result 0.2.0",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
