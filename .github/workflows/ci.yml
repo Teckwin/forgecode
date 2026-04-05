@@ -262,7 +262,7 @@ jobs:
       uses: arduino/setup-protoc@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Install protoc on Linux (if action fails)
+    - name: Install protoc on Linux
       if: ${{ matrix.os == 'ubuntu-latest' }}
       run: |
         # arduino/setup-protoc may not work reliably, so ensure protoc is installed
@@ -271,10 +271,12 @@ jobs:
           mkdir -p $HOME/.protoc
           curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
           unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d $HOME/.protoc
+        fi
+        # Always set PROTOC env var for build
+        if [ -f "$HOME/.protoc/bin/protoc" ]; then
           echo "PROTOC=$HOME/.protoc/bin/protoc" >> $GITHUB_ENV
         else
-          # Even if protoc exists, set PROTOC env var for build
-          which protoc >> $GITHUB_ENV
+          echo "PROTOC=$(which protoc)" >> $GITHUB_ENV
         fi
     - name: Setup Cross Toolchain and Protobuf
       if: ${{ matrix.cross == 'true' }}
@@ -287,10 +289,14 @@ jobs:
         echo "PROTOC=$HOME/.protoc/bin/protoc" >> $GITHUB_ENV
     - name: Install protoc on macOS
       if: ${{ matrix.os == 'macos-latest' }}
-      run: brew install protobuf
+      run: |
+        brew install protobuf
+        echo "PROTOC=$(which protoc)" >> $GITHUB_ENV
     - name: Install protoc on Windows
       if: ${{ matrix.os == 'windows-latest' }}
-      run: choco install protoc
+      run: |
+        choco install protoc
+        echo "PROTOC=C:/ProgramData/chocolatey/bin/protoc.exe" >> $GITHUB_ENV
     - name: Add Rust target
       run: rustup target add ${{ matrix.target }}
     - name: Set Rust Flags
