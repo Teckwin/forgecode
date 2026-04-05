@@ -56,6 +56,62 @@ impl Extension {
     }
 }
 
+/// Configuration values required by tool description templates.
+///
+/// Populated from [`ForgeConfig`] by the application layer and injected into
+/// [`SystemContext`] so that Handlebars templates can reference values such as
+/// `{{config.maxReadSize}}` without coupling `SystemContext` to `ForgeConfig`.
+///
+/// For backward compatibility, also accessible via `env.maxReadSize` etc.
+/// through a helper struct.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TemplateConfig {
+    /// Maximum number of lines returned by a single file read (maps to
+    /// `ForgeConfig::max_read_lines`).
+    pub max_read_size: usize,
+    /// Maximum characters per line before truncation (maps to
+    /// `ForgeConfig::max_line_chars`).
+    pub max_line_length: usize,
+    /// Maximum image size in bytes accepted by the read tool (maps to
+    /// `ForgeConfig::max_image_size_bytes`).
+    pub max_image_size: usize,
+    /// Maximum prefix lines kept when truncating shell stdout (maps to
+    /// `ForgeConfig::max_stdout_prefix_lines`).
+    pub stdout_max_prefix_length: usize,
+    /// Maximum suffix lines kept when truncating shell stdout (maps to
+    /// `ForgeConfig::max_stdout_suffix_lines`).
+    pub stdout_max_suffix_length: usize,
+    /// Maximum characters per line in shell stdout before truncation (maps to
+    /// `ForgeConfig::max_stdout_line_chars`).
+    pub stdout_max_line_length: usize,
+}
+
+/// Helper struct for backward compatibility with templates using {{env.*}}.
+/// This provides a view into the template config through the env namespace.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct EnvCompat {
+    pub max_read_size: usize,
+    pub max_line_length: usize,
+    pub max_image_size: usize,
+    pub stdout_max_prefix_length: usize,
+    pub stdout_max_suffix_length: usize,
+    pub stdout_max_line_length: usize,
+}
+
+impl From<&TemplateConfig> for EnvCompat {
+    fn from(config: &TemplateConfig) -> Self {
+        Self {
+            max_read_size: config.max_read_size,
+            max_line_length: config.max_line_length,
+            max_image_size: config.max_image_size,
+            stdout_max_prefix_length: config.stdout_max_prefix_length,
+            stdout_max_suffix_length: config.stdout_max_suffix_length,
+            stdout_max_line_length: config.stdout_max_line_length,
+        }
+    }
+}
+
 #[derive(Debug, Setters, Clone, PartialEq, Serialize, Deserialize)]
 #[setters(strip_option)]
 #[derive(Default)]
@@ -103,4 +159,22 @@ pub struct SystemContext {
     /// top `limit` extensions as defined in the `Extension` struct.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extensions: Option<Extension>,
+
+    /// Current working directory for template rendering.
+    /// Kept for backward compatibility with templates using {{env.cwd}}.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<std::path::PathBuf>,
+
+    /// Backward compatibility: provides env.* access to template config values.
+    /// This allows templates using {{env.maxReadSize}} to still work.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub env_config: Option<EnvCompat>,
+
+    /// Configuration values required by tool description templates.
+    ///
+    /// When set, templates can reference `{{config.maxReadSize}}`,
+    /// `{{config.maxLineLength}}`, etc. instead of the removed `env.*`
+    /// counterparts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<TemplateConfig>,
 }

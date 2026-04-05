@@ -4,9 +4,9 @@ use std::time::Duration;
 use anyhow::Context;
 use console::style;
 use forge_domain::{
-    Agent, AgentId, AgentInput, ChatResponse, ChatResponseContent, Environment, InputModality,
-    Model, SystemContext, ToolCallContext, ToolCallFull, ToolCatalog, ToolDefinition, ToolKind,
-    ToolName, ToolOutput, ToolResult,
+    Agent, AgentId, AgentInput, ChatResponse, ChatResponseContent, EnvCompat, Environment, InputModality,
+    Model, SystemContext, TemplateConfig, ToolCallContext, ToolCallFull, ToolCatalog,
+    ToolDefinition, ToolKind, ToolName, ToolOutput, ToolResult,
 };
 use forge_template::Element;
 use futures::future::join_all;
@@ -262,6 +262,14 @@ impl<S: Services> ToolRegistry<S> {
                 is_indexed && is_authenticated,
                 &environment,
                 model,
+                &TemplateConfig {
+                    max_read_size: environment.max_read_size as usize,
+                    max_line_length: environment.max_line_length,
+                    max_image_size: environment.max_image_size as usize,
+                    stdout_max_prefix_length: environment.stdout_max_prefix_length,
+                    stdout_max_suffix_length: environment.stdout_max_suffix_length,
+                    stdout_max_line_length: environment.stdout_max_line_length,
+                },
             ))
             .agents(agent_tools)
             .mcp(mcp_tools))
@@ -273,6 +281,7 @@ impl<S> ToolRegistry<S> {
         sem_search_supported: bool,
         env: &Environment,
         model: Option<Model>,
+        template_config: &TemplateConfig,
     ) -> Vec<ToolDefinition> {
         use crate::TemplateEngine;
 
@@ -296,9 +305,11 @@ impl<S> ToolRegistry<S> {
 
         // Create template data with environment nested under "env"
         let ctx = SystemContext {
-            env: Some(env.clone()),
+            cwd: Some(env.cwd.clone()),
+            env_config: Some(EnvCompat::from(template_config)),
             model,
             tool_names,
+            config: Some(template_config.clone()),
             ..Default::default()
         };
 
@@ -410,7 +421,7 @@ impl<S> ToolRegistry<S> {
 
 #[cfg(test)]
 mod tests {
-    use forge_domain::{Agent, AgentId, Environment, ModelId, ProviderId, ToolCatalog, ToolName};
+    use forge_domain::{Agent, AgentId, Environment, ModelId, ProviderId, TemplateConfig, ToolCatalog, ToolName};
     use pretty_assertions::assert_eq;
 
     use crate::error::Error;
@@ -689,7 +700,7 @@ mod tests {
     fn test_sem_search_included_when_supported() {
         use fake::{Fake, Faker};
         let env: Environment = Faker.fake();
-        let actual = ToolRegistry::<()>::get_system_tools(true, &env, None);
+        let actual = ToolRegistry::<()>::get_system_tools(true, &env, None, &TemplateConfig::default());
         assert!(actual.iter().any(|t| t.name.as_str() == "sem_search"));
     }
 
@@ -697,7 +708,7 @@ mod tests {
     fn test_sem_search_filtered_when_not_supported() {
         use fake::{Fake, Faker};
         let env: Environment = Faker.fake();
-        let actual = ToolRegistry::<()>::get_system_tools(false, &env, None);
+        let actual = ToolRegistry::<()>::get_system_tools(false, &env, None, &TemplateConfig::default());
         assert!(actual.iter().all(|t| t.name.as_str() != "sem_search"));
     }
 }
@@ -729,7 +740,7 @@ fn test_template_rendering_in_tool_descriptions() {
     env.max_search_lines = 1000;
     env.max_line_length = 2000;
 
-    let actual = ToolRegistry::<()>::get_system_tools(true, &env, None);
+    let actual = ToolRegistry::<()>::get_system_tools(true, &env, None, &TemplateConfig::default());
     let fs_search_tool = actual
         .iter()
         .find(|t| t.name.as_str() == "fs_search")
@@ -755,13 +766,16 @@ fn test_dynamic_tool_description_with_vision_model() {
     use fake::{Fake, Faker};
     use forge_domain::InputModality;
 
-    let mut env: Environment = Faker.fake();
-    env.max_read_size = 2000;
-    env.max_line_length = 2000;
-    env.max_image_size = 5000; // Set fixed value for deterministic test
+    let env: Environment = Faker.fake();
+    let template_config = TemplateConfig {
+        max_read_size: 2000,
+        max_line_length: 2000,
+        max_image_size: 5000,
+        ..Default::default()
+    };
     let vision_model = create_test_model("gpt-4o", vec![InputModality::Text, InputModality::Image]);
 
-    let tools_with_vision = ToolRegistry::<()>::get_system_tools(true, &env, Some(vision_model));
+    let tools_with_vision = ToolRegistry::<()>::get_system_tools(true, &env, Some(vision_model), &template_config);
     let read_tool = tools_with_vision
         .iter()
         .find(|t| t.name.as_str() == "read")
@@ -774,13 +788,16 @@ fn test_dynamic_tool_description_with_text_only_model() {
     use fake::{Fake, Faker};
     use forge_domain::InputModality;
 
-    let mut env: Environment = Faker.fake();
-    env.max_read_size = 2000;
-    env.max_line_length = 2000;
-    env.max_image_size = 5000; // Set fixed value for deterministic test
+    let env: Environment = Faker.fake();
+    let template_config = TemplateConfig {
+        max_read_size: 2000,
+        max_line_length: 2000,
+        max_image_size: 5000,
+        ..Default::default()
+    };
     let text_only_model = create_test_model("gpt-3.5-turbo", vec![InputModality::Text]);
 
-    let tools_text_only = ToolRegistry::<()>::get_system_tools(true, &env, Some(text_only_model));
+    let tools_text_only = ToolRegistry::<()>::get_system_tools(true, &env, Some(text_only_model), &template_config);
     let read_tool = tools_text_only
         .iter()
         .find(|t| t.name.as_str() == "read")
@@ -920,13 +937,16 @@ fn test_has_image_extension() {
 fn test_dynamic_tool_description_without_model() {
     use fake::{Fake, Faker};
 
-    let mut env: Environment = Faker.fake();
-    env.max_read_size = 2000;
-    env.max_image_size = 5000;
-    env.max_line_length = 2000;
+    let env: Environment = Faker.fake();
+    let template_config = TemplateConfig {
+        max_read_size: 2000,
+        max_image_size: 5000,
+        max_line_length: 2000,
+        ..Default::default()
+    };
 
     // When no model is provided, should default to showing minimal capabilities
-    let tools_no_model = ToolRegistry::<()>::get_system_tools(true, &env, None);
+    let tools_no_model = ToolRegistry::<()>::get_system_tools(true, &env, None, &template_config);
     let read_tool = tools_no_model
         .iter()
         .find(|t| t.name.as_str() == "read")
@@ -942,19 +962,27 @@ fn test_all_rendered_tool_descriptions() {
 
     let mut env: Environment = Faker.fake();
     env.cwd = "/home/user/project".into();
-    env.max_read_size = 2000;
-    env.max_line_length = 2000;
-    env.max_image_size = 5000;
-    env.stdout_max_prefix_length = 200;
-    env.stdout_max_suffix_length = 200;
-    env.stdout_max_line_length = 2000;
 
-    let tools = ToolRegistry::<()>::get_system_tools(true, &env, None);
+    let template_config = TemplateConfig {
+        max_read_size: 2000,
+        max_line_length: 2000,
+        max_image_size: 5000,
+        stdout_max_prefix_length: 200,
+        stdout_max_suffix_length: 200,
+        stdout_max_line_length: 2000,
+    };
+
+    let tools = ToolRegistry::<()>::get_system_tools(true, &env, None, &template_config);
 
     // Verify all tools have rendered descriptions (no template syntax left)
+    // Note: {{env.*}} and {{config.*}} are intentionally left as template variables
+    // for backward compatibility - they are rendered at runtime, not at tool registration
+    let allowed_patterns = ["{{env.", "{{config.", "{{tool_names."];
     for tool in &tools {
+        let has_unallowed_template = tool.description.contains("{{")
+            && !allowed_patterns.iter().any(|pattern| tool.description.contains(pattern));
         assert!(
-            !tool.description.contains("{{"),
+            !has_unallowed_template,
             "Tool '{}' has unrendered template variables:\n{}",
             tool.name,
             tool.description

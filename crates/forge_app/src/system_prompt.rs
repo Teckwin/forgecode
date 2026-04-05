@@ -4,7 +4,7 @@ use std::sync::Arc;
 use derive_setters::Setters;
 use forge_domain::{
     Agent, Conversation, Environment, Extension, ExtensionStat, File, Model, SystemContext,
-    Template, ToolCatalog, ToolDefinition, ToolUsagePrompt,
+    Template, TemplateConfig, ToolCatalog, ToolDefinition, ToolUsagePrompt,
 };
 use serde_json::{Map, Value, json};
 use strum::IntoEnumIterator;
@@ -100,7 +100,7 @@ impl<S: SkillFetchService + ShellService> SystemPrompt<S> {
                 .collect();
 
             let ctx = SystemContext {
-                env: Some(env),
+                env: Some(env.clone()),
                 tool_information,
                 tool_supported,
                 files,
@@ -110,6 +110,16 @@ impl<S: SkillFetchService + ShellService> SystemPrompt<S> {
                 model: None,
                 tool_names,
                 extensions,
+                cwd: Some(env.cwd.clone()),
+                config: Some(TemplateConfig {
+                    max_read_size: env.max_read_size as usize,
+                    max_line_length: env.max_line_length,
+                    max_image_size: env.max_image_size as usize,
+                    stdout_max_prefix_length: env.stdout_max_prefix_length,
+                    stdout_max_suffix_length: env.stdout_max_suffix_length,
+                    stdout_max_line_length: env.stdout_max_line_length,
+                }),
+                ..Default::default()
             };
 
             let static_block = TemplateEngine::default()
