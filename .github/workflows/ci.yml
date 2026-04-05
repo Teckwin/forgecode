@@ -262,6 +262,20 @@ jobs:
       uses: arduino/setup-protoc@v3
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Install protoc on Linux (if action fails)
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      run: |
+        # arduino/setup-protoc may not work reliably, so ensure protoc is installed
+        if ! command -v protoc &> /dev/null; then
+          PROTOC_VERSION="28.1"
+          mkdir -p $HOME/.protoc
+          curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+          unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d $HOME/.protoc
+          echo "PROTOC=$HOME/.protoc/bin/protoc" >> $GITHUB_ENV
+        else
+          # Even if protoc exists, set PROTOC env var for build
+          which protoc >> $GITHUB_ENV
+        fi
     - name: Setup Cross Toolchain and Protobuf
       if: ${{ matrix.cross == 'true' }}
       run: |
@@ -271,7 +285,7 @@ jobs:
         curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
         unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d $HOME/.protoc
         echo "PROTOC=$HOME/.protoc/bin/protoc" >> $GITHUB_ENV
-    - name: Install protoc on macOS/Windows
+    - name: Install protoc on macOS
       if: ${{ matrix.os == 'macos-latest' }}
       run: brew install protobuf
     - name: Install protoc on Windows
