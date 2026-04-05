@@ -11,6 +11,35 @@ description: |
 
 This skill enforces a strict release workflow with version management and triple verification gates.
 
+## CI Trigger Configuration
+
+The project uses two workflow files:
+- **ci.yml**: Runs on push (main branch, tags) and PR events
+- **release.yml**: Runs only on release published events
+
+### CI Jobs and Triggers
+
+| Event | build | zsh_rprompt_perf | draft_release | build_release | Notes |
+|-------|-------|------------------|---------------|---------------|-------|
+| push main | ✓ | ✓ | ✓ | ✓ | Full CI with multi-platform build |
+| push tags (v*) | ✓ | ✓ | - | - | Basic CI only |
+| PR | ✓ | ✓ | - | - | Basic CI |
+| PR + `ci: build all targets` | ✓ | ✓ | ✓* | ✓* | Full cross-platform build |
+| release published | - | - | - | - | Handled by release.yml |
+
+*PR builds require the `ci: build all targets` label to trigger draft_release and build_release
+
+### Release Workflow
+
+For official releases:
+1. **push main** triggers ci.yml which runs build_release (multi-platform build)
+2. When ready to release, create a GitHub Release which triggers release.yml
+3. release.yml handles the actual multi-platform binary packaging and distribution
+
+This ensures:
+- Multi-platform builds are verified on push to main before release
+- release.yml only handles packaging when user creates a GitHub Release
+
 ## Mandatory Rules
 
 ### 1. Version Decision at PR Merge Time

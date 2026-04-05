@@ -12,6 +12,24 @@ description: |
 
 This skill enforces strict git workflow rules to ensure code quality and traceability.
 
+## CI Trigger Configuration
+
+The project uses two workflow files:
+- **ci.yml**: Runs on push (main branch, tags) and PR events
+- **release.yml**: Runs only on release published events
+
+### CI Jobs and Triggers
+
+| Event | build | zsh_rprompt_perf | draft_release | build_release | Notes |
+|-------|-------|------------------|---------------|---------------|-------|
+| push main | ✓ | ✓ | ✓ | ✓ | Full CI with multi-platform build |
+| push tags (v*) | ✓ | ✓ | - | - | Basic CI only |
+| PR | ✓ | ✓ | - | - | Basic CI |
+| PR + `ci: build all targets` | ✓ | ✓ | ✓* | ✓* | Full cross-platform build |
+| release published | - | - | - | - | Handled by release.yml |
+
+*PR builds require the `ci: build all targets` label to trigger draft_release and build_release
+
 ## Mandatory Rules
 
 ### 1. NEVER Develop on main Branch (CRITICAL)
@@ -75,8 +93,10 @@ Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`
 
 | Label | When to Use | Effect |
 |-------|-------------|--------|
-| `ci: build all targets` | Full cross-platform validation needed | Runs 9 platform builds |
-| (no label) | Quick local validation | Basic CI (check + build + test) |
+| `ci: build all targets` | Full cross-platform validation needed | Runs 9 platform builds (Linux musl/gnu, macOS, Windows, Android) |
+| (no label) | Quick local validation | Basic CI (build + zsh_rprompt_perf only) |
+
+**Note**: The `ci: build all targets` label triggers draft_release and build_release jobs for PRs, enabling full cross-platform build verification before merging.
 
 ## Prohibited Actions
 

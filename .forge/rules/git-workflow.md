@@ -39,14 +39,37 @@ Local Dev (feature branch) -> CI Verify -> PR Verify (with version label) -> Rel
 
 **PRs without this label CANNOT be merged.**
 
-## 4. Release Process
+## 4. CI Trigger Rules
+
+The project uses two workflow files:
+- **ci.yml**: Runs on push (main branch, tags) and PR events
+- **release.yml**: Runs only on release published events
+
+### CI Jobs by Event
+
+| Event | Jobs Run |
+|-------|----------|
+| push main | build, zsh_rprompt_perf, draft_release, build_release |
+| push tags (v*) | build, zsh_rprompt_perf |
+| PR | build, zsh_rprompt_perf |
+| PR + `ci: build all targets` | build, zsh_rprompt_perf, draft_release, build_release |
+| release published | Handled by release.yml |
+
+### Using `ci: build all targets` Label
+
+For PRs that need full cross-platform build verification:
+- Add the `ci: build all targets` label to trigger multi-platform builds
+- This runs all 9 platform builds (Linux musl/gnu, macOS, Windows, Android)
+
+## 5. Release Process
 
 1. PR is merged with version label
 2. Version is decided at merge time (not at release time)
-3. After merge, create tag and GitHub Release
-4. Tag format: `v1.2.0` (semver)
+3. After merge to main, CI runs build_release to verify multi-platform builds
+4. Create GitHub Release (triggers release.yml for packaging)
+5. Tag format: `v1.2.0` (semver)
 
-## 5. Prohibited Actions
+## 6. Prohibited Actions
 
 - ❌ Creating releases without PR
 - ❌ Skipping CI verification
