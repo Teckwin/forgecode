@@ -288,7 +288,14 @@ impl Environment {
     }
 
     pub fn mcp_local_config(&self) -> PathBuf {
-        self.cwd.join(".mcp.json")
+        // New: prefer .forge/.mcp.json, fallback to cwd/.mcp.json
+        let new_path = self.cwd.join(".forge/.mcp.json");
+        let old_path = self.cwd.join(".mcp.json");
+        if new_path.exists() {
+            new_path
+        } else {
+            old_path
+        }
     }
 
     pub fn version(&self) -> String {
@@ -306,6 +313,56 @@ impl Environment {
     /// Returns the path to the cache directory
     pub fn cache_dir(&self) -> PathBuf {
         self.base_path.join("cache")
+    }
+
+    // --- New unified config paths ---
+
+    /// Returns the global settings.json path (~/.forge/settings.json)
+    pub fn global_settings_path(&self) -> PathBuf {
+        self.base_path.join("settings.json")
+    }
+
+    /// Returns the project settings.json path (<cwd>/.forge/settings.json)
+    pub fn project_settings_path(&self) -> PathBuf {
+        self.cwd.join(".forge/settings.json")
+    }
+
+    /// Returns the project local settings path (<cwd>/.forge/settings.local.json)
+    pub fn project_local_settings_path(&self) -> PathBuf {
+        self.cwd.join(".forge/settings.local.json")
+    }
+
+    /// Returns the global FORGE.md path (~/.forge/FORGE.md)
+    pub fn forge_md_global_path(&self) -> PathBuf {
+        self.base_path.join("FORGE.md")
+    }
+
+    /// Returns the project FORGE.md path (<cwd>/.forge/FORGE.md)
+    /// Also checks <cwd>/FORGE.md as fallback.
+    pub fn forge_md_project_path(&self) -> PathBuf {
+        let dotforge = self.cwd.join(".forge/FORGE.md");
+        let root = self.cwd.join("FORGE.md");
+        if dotforge.exists() { dotforge } else { root }
+    }
+
+    /// Returns the global rules directory (~/.forge/rules/)
+    pub fn rules_global_path(&self) -> PathBuf {
+        self.base_path.join("rules")
+    }
+
+    /// Returns the project rules directory (<cwd>/.forge/rules/)
+    pub fn rules_project_path(&self) -> PathBuf {
+        self.cwd.join(".forge/rules")
+    }
+
+    /// Returns the global memory directory (~/.forge/memory/)
+    pub fn memory_global_path(&self) -> PathBuf {
+        self.base_path.join("memory")
+    }
+
+    /// Returns the project memory directory (<cwd>/.forge/memory/)
+    pub fn memory_project_path(&self) -> PathBuf {
+        self.cwd.join(".forge/memory")
     }
 
     /// Returns the global skills directory path (~/forge/skills)
