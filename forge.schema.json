@@ -167,7 +167,7 @@
       "minimum": 0
     },
     "max_tokens": {
-      "description": "Maximum tokens the model may generate per response for all agents\n(1\u2013100,000).",
+      "description": "Maximum tokens the model may generate per response for all agents\n(1–100,000).",
       "type": [
         "integer",
         "null"
@@ -251,7 +251,7 @@
       "default": null
     },
     "temperature": {
-      "description": "Output randomness for all agents; lower values are deterministic, higher\nvalues are creative (0.0\u20132.0).",
+      "description": "Output randomness for all agents; lower values are deterministic, higher\nvalues are creative (0.0–2.0).",
       "anyOf": [
         {
           "$ref": "#/$defs/double"
@@ -272,7 +272,7 @@
       "minimum": 0
     },
     "top_k": {
-      "description": "Top-k vocabulary cutoff for all agents; restricts sampling to the k\nhighest-probability tokens (1\u20131000).",
+      "description": "Top-k vocabulary cutoff for all agents; restricts sampling to the k\nhighest-probability tokens (1–1000).",
       "type": [
         "integer",
         "null"
@@ -281,7 +281,7 @@
       "minimum": 0
     },
     "top_p": {
-      "description": "Nucleus sampling threshold for all agents; limits token selection to the\ntop cumulative probability mass (0.0\u20131.0).",
+      "description": "Nucleus sampling threshold for all agents; limits token selection to the\ntop cumulative probability mass (0.0–1.0).",
       "anyOf": [
         {
           "$ref": "#/$defs/double"
@@ -301,17 +301,6 @@
           "type": "null"
         }
       ]
-    },
-    "agents": {
-      "description": "Agent-specific configuration overrides",
-      "type": [
-        "array",
-        "null"
-      ],
-      "items": {
-        "$ref": "#/$defs/AgentConfig"
-      },
-      "default": null
     }
   },
   "required": [
@@ -849,71 +838,6 @@
     "double": {
       "type": "number",
       "format": "double"
-    },
-    "AgentConfig": {
-      "type": "object",
-      "required": [
-        "id"
-      ],
-      "properties": {
-        "id": {
-          "description": "Agent identifier",
-          "type": "string",
-          "examples": [
-            "sage",
-            "muse",
-            "forge"
-          ]
-        },
-        "model": {
-          "description": "Model to use for this agent (overrides global default)",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "provider": {
-          "description": "Provider to use for this agent (overrides global default)",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "temperature": {
-          "description": "Temperature parameter for this agent (0.0-2.0)",
-          "type": [
-            "number",
-            "null"
-          ],
-          "minimum": 0,
-          "maximum": 2
-        },
-        "max_tokens": {
-          "description": "Maximum tokens for this agent",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
-        "max_turns": {
-          "description": "Maximum turns for this agent",
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
-        "parameters": {
-          "description": "Additional model parameters",
-          "type": [
-            "object",
-            "null"
-          ],
-          "additionalProperties": true
-        }
-      },
-      "additionalProperties": false
     }
   }
 }
