@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use forge_app::CommandInfra;
 use forge_domain::{CommandOutput, ConsoleWriter as OutputPrinterTrait, Environment};
+use forge_sandbox::Sandbox;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -11,18 +12,36 @@ use tokio::sync::Mutex;
 use crate::console::StdConsoleWriter;
 
 /// Service for executing shell commands
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ForgeCommandExecutorService {
     env: Environment,
     output_printer: Arc<StdConsoleWriter>,
 
     // Mutex to ensure that only one command is executed at a time
     ready: Arc<Mutex<()>>,
+
+    // Optional OS-level sandbox for command execution
+    sandbox: Option<Arc<dyn Sandbox>>,
+}
+
+impl std::fmt::Debug for ForgeCommandExecutorService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ForgeCommandExecutorService")
+            .field("env", &self.env)
+            .field("sandbox", &self.sandbox.as_ref().map(|s| s.is_available()))
+            .finish()
+    }
 }
 
 impl ForgeCommandExecutorService {
     pub fn new(env: Environment, output_printer: Arc<StdConsoleWriter>) -> Self {
-        Self { env, output_printer, ready: Arc::new(Mutex::new(())) }
+        Self { env, output_printer, ready: Arc::new(Mutex::new(())), sandbox: None }
+    }
+
+    /// Set the sandbox implementation for command execution.
+    pub fn with_sandbox(mut self, sandbox: Box<dyn Sandbox>) -> Self {
+        self.sandbox = Some(Arc::from(sandbox));
+        self
     }
 
     fn prepare_command(
@@ -99,7 +118,29 @@ impl ForgeCommandExecutorService {
     ) -> anyhow::Result<CommandOutput> {
         let ready = self.ready.lock().await;
 
-        let mut prepared_command = self.prepare_command(&command, working_dir, env_vars);
+        // Optionally wrap the command in a sandbox
+        let effective_command = if let Some(ref sandbox) = self.sandbox {
+            if sandbox.is_available() {
+                match sandbox.wrap_command(&command, working_dir) {
+                    Ok(wrapped) => {
+                        tracing::debug!(original = %command, wrapped = %wrapped, "Sandboxed command");
+                        wrapped
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = ?e, "Sandbox wrap failed, executing unsandboxed");
+                        command.clone()
+                    }
+                }
+            } else {
+                tracing::debug!("Sandbox not available, executing unsandboxed");
+                command.clone()
+            }
+        } else {
+            command.clone()
+        };
+
+        let mut prepared_command =
+            self.prepare_command(&effective_command, working_dir, env_vars);
 
         // Spawn the command
         let mut child = prepared_command.spawn()?;
