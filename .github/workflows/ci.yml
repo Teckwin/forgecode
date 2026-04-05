@@ -270,8 +270,13 @@ jobs:
         mkdir -p $HOME/.protoc
         curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
         unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d $HOME/.protoc
-        echo "$HOME/.protoc/bin" >> $GITHUB_PATH
         echo "PROTOC=$HOME/.protoc/bin/protoc" >> $GITHUB_ENV
+    - name: Install protoc on macOS/Windows
+      if: ${{ matrix.os == 'macos-latest' }}
+      run: brew install protobuf
+    - name: Install protoc on Windows
+      if: ${{ matrix.os == 'windows-latest' }}
+      run: choco install protoc
     - name: Add Rust target
       run: rustup target add ${{ matrix.target }}
     - name: Set Rust Flags
@@ -286,6 +291,7 @@ jobs:
         cross-version: '0.2.5'
       env:
         RUSTFLAGS: ${{ env.RUSTFLAGS }}
+        PROTOC: ${{ matrix.cross == 'true' && format('{0}/.protoc/bin/protoc', env.HOME) || '' }}
         POSTHOG_API_SECRET: ${{secrets.POSTHOG_API_SECRET}}
         APP_VERSION: ${{ needs.draft_release_pr.outputs.crate_release_name }}
 concurrency:
