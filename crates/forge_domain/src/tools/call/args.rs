@@ -37,14 +37,19 @@ impl<'de> Deserialize<'de> for ToolCallArguments {
     {
         let value = Value::deserialize(deserializer)?;
 
-        // If the value is a string, wrap it as Unparsed (stringified JSON)
-        // This handles the case where providers send arguments as JSON strings
-        if let Value::String(s) = &value {
-            return Ok(ToolCallArguments::Unparsed(s.clone()));
+        // Handle case where API sends arguments as a string containing JSON
+        // e.g., "{\"key\": \"value\"}" instead of {"key": "value"}
+        // Try to repair/parse the string as JSON; if successful use Parsed,
+        // otherwise fall back to Unparsed to preserve the raw string
+        if let Value::String(json_str) = &value {
+            if let Ok(repaired) = json_repair(json_str) {
+                return Ok(ToolCallArguments::Parsed(repaired));
+            }
+            // If json_repair fails, fall back to storing as Unparsed
+            return Ok(ToolCallArguments::Unparsed(json_str.clone()));
         }
 
-        // Otherwise, it's a proper JSON object/array/primitive
-        Ok(value.into())
+        Ok(ToolCallArguments::Parsed(value))
     }
 }
 
@@ -291,8 +296,7 @@ mod tests {
     fn test_deserialize_primitive_string() {
         let json_str = r#""simple string""#;
         let actual: ToolCallArguments = serde_json::from_str(json_str).unwrap();
-        // When deserializing, string values become Unparsed (to preserve the string as-is)
-        let expected = ToolCallArguments::Unparsed("simple string".to_string());
+        let expected = ToolCallArguments::Parsed(json!("simple string"));
         assert_eq!(actual, expected);
     }
 
