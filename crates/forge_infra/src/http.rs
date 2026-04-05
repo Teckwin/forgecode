@@ -213,7 +213,9 @@ impl<F: forge_app::FileWriterInfra + 'static> ForgeHttpInfra<F> {
             let body_clone = body.clone();
             let debug_path = debug_path.clone();
             tokio::spawn(async move {
-                let _ = file_writer.write(&debug_path, body_clone).await;
+                if let Err(e) = file_writer.write(&debug_path, body_clone).await {
+                    tracing::warn!(error = ?e, "Failed to write debug request");
+                }
             });
         }
     }

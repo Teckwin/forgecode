@@ -360,11 +360,23 @@ impl<A: API + ConsoleWriter + 'static, F: Fn() -> A + Send + Sync> UI<A, F> {
     // Improve startup time by hydrating caches
     fn hydrate_caches(&self) {
         let api = self.api.clone();
-        tokio::spawn(async move { api.get_models().await });
+        tokio::spawn(async move {
+            if let Err(e) = api.get_models().await {
+                tracing::warn!(error = ?e, "Failed to hydrate models cache");
+            }
+        });
         let api = self.api.clone();
-        tokio::spawn(async move { api.get_tools().await });
+        tokio::spawn(async move {
+            if let Err(e) = api.get_tools().await {
+                tracing::warn!(error = ?e, "Failed to hydrate tools cache");
+            }
+        });
         let api = self.api.clone();
-        tokio::spawn(async move { api.get_agents().await });
+        tokio::spawn(async move {
+            if let Err(e) = api.get_agents().await {
+                tracing::warn!(error = ?e, "Failed to hydrate agents cache");
+            }
+        });
         let api = self.api.clone();
         tokio::spawn(async move {
             let _ = api.hydrate_channel();

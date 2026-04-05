@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use derive_setters::Setters;
@@ -7,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::reader::ConfigReader;
 use crate::writer::ConfigWriter;
-use crate::{AutoDumpFormat, Compact, Decimal, HttpConfig, ModelConfig, RetryConfig, Update};
+use crate::{
+    AutoDumpFormat, Compact, Decimal, HttpConfig, MemorySettings, ModelConfig, PermissionSettings,
+    RetryConfig, RulesSettings, SandboxSettings, Update,
+};
 
 /// Top-level Forge configuration merged from all sources (defaults, file,
 /// environment).
@@ -123,6 +127,69 @@ pub struct ForgeConfig {
     /// Whether tool use is supported in the current environment.
     /// When false, tool calls are disabled regardless of agent configuration.
     pub tool_supported: bool,
+
+    /// Per-agent provider configuration keyed by agent ID.
+    /// Allows different built-in agents to use different providers/models.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agents: Option<HashMap<String, AgentProviderSettings>>,
+
+    /// MCP server definitions (merged from all config layers).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[dummy(expr = "None")]
+    pub mcp_servers: Option<HashMap<String, serde_json::Value>>,
+
+    /// Permission rules controlling tool execution, file access, etc.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub permissions: Option<PermissionSettings>,
+
+    /// OS-level sandbox settings for command execution.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxSettings>,
+
+    /// Rules directory loading settings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rules: Option<RulesSettings>,
+
+    /// Auto-memory system settings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory: Option<MemorySettings>,
+}
+
+/// Per-agent provider configuration for settings.json `agents` section.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema, Dummy)]
+pub struct AgentProviderSettings {
+    /// Provider ID (e.g. "anthropic", "openai")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+
+    /// Model ID (e.g. "claude-sonnet-4-20250514")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+
+    /// API key (supports `${ENV_VAR}` syntax)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+
+    /// Custom base URL for the provider
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+
+    /// Model generation parameters
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<AgentParameterSettings>,
+}
+
+/// Model generation parameters for per-agent settings.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema, Dummy)]
+pub struct AgentParameterSettings {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
 }
 
 #[cfg(test)]
