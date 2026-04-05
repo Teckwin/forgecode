@@ -14,6 +14,7 @@ pub fn release_publish() {
         .name("Multi Channel Release")
         .on(Event {
             release: Some(Release { types: vec![ReleaseType::Published] }),
+            workflow_dispatch: Some(WorkflowDispatch::default()),
             ..Event::default()
         })
         .permissions(
