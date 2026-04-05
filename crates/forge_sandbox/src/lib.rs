@@ -1,1 +1,7 @@
-// forge_sandbox — placeholder, will be populated by agent
+pub mod config;
+pub mod error;
+pub mod platform;
+
+pub use config::SandboxConfig;
+pub use error::SandboxError;
+pub use platform::{Sandbox, create_sandbox};

@@ -4,6 +4,16 @@
   "description": "Top-level Forge configuration merged from all sources (defaults, file,\nenvironment).",
   "type": "object",
   "properties": {
+    "agents": {
+      "description": "Per-agent provider configuration keyed by agent ID.\nAllows different built-in agents to use different providers/models.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": {
+        "$ref": "#/$defs/AgentProviderSettings"
+      }
+    },
     "auto_dump": {
       "description": "Format for automatically creating a dump when a task is completed",
       "anyOf": [
@@ -184,11 +194,41 @@
       "format": "uint",
       "minimum": 0
     },
+    "mcp_servers": {
+      "description": "MCP server definitions (merged from all config layers).",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "memory": {
+      "description": "Auto-memory system settings.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MemorySettings"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "model_cache_ttl_secs": {
       "description": "TTL in seconds for the model API list cache",
       "type": "integer",
       "format": "uint64",
       "minimum": 0
+    },
+    "permissions": {
+      "description": "Permission rules controlling tool execution, file access, etc.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PermissionSettings"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "restricted": {
       "description": "Whether the application is running in restricted mode.\nWhen true, tool execution requires explicit permission grants.",
@@ -199,6 +239,28 @@
       "anyOf": [
         {
           "$ref": "#/$defs/RetryConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rules": {
+      "description": "Rules directory loading settings.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RulesSettings"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sandbox": {
+      "description": "OS-level sandbox settings for command execution.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SandboxSettings"
         },
         {
           "type": "null"
@@ -317,6 +379,87 @@
     "tool_supported"
   ],
   "$defs": {
+    "AgentParameterSettings": {
+      "description": "Model generation parameters for per-agent settings.",
+      "type": "object",
+      "properties": {
+        "max_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "temperature": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "top_k": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "top_p": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        }
+      }
+    },
+    "AgentProviderSettings": {
+      "description": "Per-agent provider configuration for settings.json `agents` section.",
+      "type": "object",
+      "properties": {
+        "api_key": {
+          "description": "API key (supports `${ENV_VAR}` syntax)",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base_url": {
+          "description": "Custom base URL for the provider",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "description": "Model ID (e.g. \"claude-sonnet-4-20250514\")",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parameters": {
+          "description": "Model generation parameters",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AgentParameterSettings"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "description": "Provider ID (e.g. \"anthropic\", \"openai\")",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
     "AutoDumpFormat": {
       "description": "The output format used when auto-dumping a conversation on task completion.",
       "oneOf": [
@@ -399,6 +542,21 @@
           "minimum": 0
         }
       }
+    },
+    "EnforceMode": {
+      "description": "How strongly rules are enforced in the system prompt.",
+      "oneOf": [
+        {
+          "description": "Rules are injected as plain text in the system prompt.",
+          "type": "string",
+          "const": "normal"
+        },
+        {
+          "description": "Rules are wrapped in `<forge-rules priority=\"mandatory\">` XML tags\nfor stronger adherence.",
+          "type": "string",
+          "const": "strict"
+        }
+      ]
     },
     "HttpConfig": {
       "description": "HTTP client configuration.",
@@ -509,6 +667,17 @@
         "accept_invalid_certs"
       ]
     },
+    "MemorySettings": {
+      "description": "Settings for the auto-memory system.\n\nAuto memory lets the agent write cross-session notes into\n`<project>/.forge/memory/` and `~/.forge/memory/`. The `MEMORY.md` file\nis always loaded at session start; additional topic files are discovered\nautomatically.",
+      "type": "object",
+      "properties": {
+        "auto_memory_enabled": {
+          "description": "Whether the agent may automatically create and update memory files.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
     "ModelConfig": {
       "description": "Pairs a provider and model together for a specific operation.",
       "type": "object",
@@ -526,6 +695,61 @@
             "string",
             "null"
           ]
+        }
+      }
+    },
+    "PermissionSettings": {
+      "description": "Permission rules controlling what operations the agent may perform.\n\nModelled after Claude Code's `permissions` section in `settings.json`.",
+      "type": "object",
+      "properties": {
+        "allow": {
+          "description": "Command patterns that are automatically allowed (e.g. `\"git *\"`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_read": {
+          "description": "Path patterns where reads are allowed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_write": {
+          "description": "Path patterns where writes are allowed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ask": {
+          "description": "Command patterns that require user confirmation before execution.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny": {
+          "description": "Command patterns that are always denied.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny_read": {
+          "description": "Path patterns where reads are denied.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deny_write": {
+          "description": "Path patterns where writes are denied.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -589,6 +813,52 @@
         "status_codes",
         "suppress_errors"
       ]
+    },
+    "RulesSettings": {
+      "description": "Settings for the rules/ directory system.\n\nRules are markdown files in `~/.forge/rules/` and `<project>/.forge/rules/`\nthat provide mandatory instructions for the agent. Files support YAML\nfrontmatter with `globs` for path-scoped rules.",
+      "type": "object",
+      "properties": {
+        "auto_load": {
+          "description": "Whether to automatically load rules from `rules/` directories.",
+          "type": "boolean",
+          "default": true
+        },
+        "enforce_mode": {
+          "description": "Enforcement mode: `\"strict\"` wraps rules in XML tags for higher\ncompliance; `\"normal\"` injects rules as plain text.",
+          "$ref": "#/$defs/EnforceMode",
+          "default": "normal"
+        }
+      }
+    },
+    "SandboxSettings": {
+      "description": "Settings for OS-level sandbox enforcement on tool execution.",
+      "type": "object",
+      "properties": {
+        "allow_network": {
+          "description": "Whether network access is allowed inside the sandbox.",
+          "type": "boolean",
+          "default": true
+        },
+        "enabled": {
+          "description": "Whether sandbox enforcement is enabled.",
+          "type": "boolean",
+          "default": false
+        },
+        "readonly_paths": {
+          "description": "Additional paths the sandbox may read (beyond system defaults).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "writable_paths": {
+          "description": "Additional paths the sandbox may write to (beyond `cwd`).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     },
     "TlsBackend": {
       "description": "TLS backend option.",
