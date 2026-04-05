@@ -4,9 +4,9 @@ use std::time::Duration;
 use anyhow::Context;
 use console::style;
 use forge_domain::{
-    Agent, AgentId, AgentInput, ChatResponse, ChatResponseContent, EnvCompat, Environment, InputModality,
-    Model, SystemContext, TemplateConfig, ToolCallContext, ToolCallFull, ToolCatalog,
-    ToolDefinition, ToolKind, ToolName, ToolOutput, ToolResult,
+    Agent, AgentId, AgentInput, ChatResponse, ChatResponseContent, EnvCompat, Environment,
+    InputModality, Model, SystemContext, TemplateConfig, ToolCallContext, ToolCallFull,
+    ToolCatalog, ToolDefinition, ToolKind, ToolName, ToolOutput, ToolResult,
 };
 use forge_template::Element;
 use futures::future::join_all;
@@ -421,7 +421,9 @@ impl<S> ToolRegistry<S> {
 
 #[cfg(test)]
 mod tests {
-    use forge_domain::{Agent, AgentId, Environment, ModelId, ProviderId, TemplateConfig, ToolCatalog, ToolName};
+    use forge_domain::{
+        Agent, AgentId, Environment, ModelId, ProviderId, TemplateConfig, ToolCatalog, ToolName,
+    };
     use pretty_assertions::assert_eq;
 
     use crate::error::Error;
@@ -700,7 +702,8 @@ mod tests {
     fn test_sem_search_included_when_supported() {
         use fake::{Fake, Faker};
         let env: Environment = Faker.fake();
-        let actual = ToolRegistry::<()>::get_system_tools(true, &env, None, &TemplateConfig::default());
+        let actual =
+            ToolRegistry::<()>::get_system_tools(true, &env, None, &TemplateConfig::default());
         assert!(actual.iter().any(|t| t.name.as_str() == "sem_search"));
     }
 
@@ -708,7 +711,8 @@ mod tests {
     fn test_sem_search_filtered_when_not_supported() {
         use fake::{Fake, Faker};
         let env: Environment = Faker.fake();
-        let actual = ToolRegistry::<()>::get_system_tools(false, &env, None, &TemplateConfig::default());
+        let actual =
+            ToolRegistry::<()>::get_system_tools(false, &env, None, &TemplateConfig::default());
         assert!(actual.iter().all(|t| t.name.as_str() != "sem_search"));
     }
 }
@@ -775,7 +779,8 @@ fn test_dynamic_tool_description_with_vision_model() {
     };
     let vision_model = create_test_model("gpt-4o", vec![InputModality::Text, InputModality::Image]);
 
-    let tools_with_vision = ToolRegistry::<()>::get_system_tools(true, &env, Some(vision_model), &template_config);
+    let tools_with_vision =
+        ToolRegistry::<()>::get_system_tools(true, &env, Some(vision_model), &template_config);
     let read_tool = tools_with_vision
         .iter()
         .find(|t| t.name.as_str() == "read")
@@ -797,7 +802,8 @@ fn test_dynamic_tool_description_with_text_only_model() {
     };
     let text_only_model = create_test_model("gpt-3.5-turbo", vec![InputModality::Text]);
 
-    let tools_text_only = ToolRegistry::<()>::get_system_tools(true, &env, Some(text_only_model), &template_config);
+    let tools_text_only =
+        ToolRegistry::<()>::get_system_tools(true, &env, Some(text_only_model), &template_config);
     let read_tool = tools_text_only
         .iter()
         .find(|t| t.name.as_str() == "read")
@@ -980,12 +986,13 @@ fn test_all_rendered_tool_descriptions() {
     let allowed_patterns = ["{{env.", "{{config.", "{{tool_names."];
     for tool in &tools {
         let has_unallowed_template = tool.description.contains("{{")
-            && !allowed_patterns.iter().any(|pattern| tool.description.contains(pattern));
+            && !allowed_patterns
+                .iter()
+                .any(|pattern| tool.description.contains(pattern));
         assert!(
             !has_unallowed_template,
             "Tool '{}' has unrendered template variables:\n{}",
-            tool.name,
-            tool.description
+            tool.name, tool.description
         );
     }
 
