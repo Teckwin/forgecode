@@ -35,7 +35,16 @@ impl<'de> Deserialize<'de> for ToolCallArguments {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Value::deserialize(deserializer)?.into())
+        let value = Value::deserialize(deserializer)?;
+
+        // If the value is a string, wrap it as Unparsed (stringified JSON)
+        // This handles the case where providers send arguments as JSON strings
+        if let Value::String(s) = &value {
+            return Ok(ToolCallArguments::Unparsed(s.clone()));
+        }
+
+        // Otherwise, it's a proper JSON object/array/primitive
+        Ok(value.into())
     }
 }
 
@@ -79,6 +88,26 @@ impl ToolCallArguments {
         }
 
         ToolCallArguments::Parsed(Value::Object(map))
+    }
+
+    /// Normalizes the arguments by parsing any Unparsed JSON strings into Parsed values.
+    ///
+    /// This is useful when:
+    /// - Resuming a conversation that was persisted with stringified arguments
+    /// - Provider sends tool call arguments as JSON strings instead of objects
+    ///
+    /// After normalization, serialization will produce proper JSON objects for API calls.
+    pub fn normalize(self) -> Self {
+        match self {
+            ToolCallArguments::Unparsed(json_str) => {
+                // Parse the JSON string and convert to Parsed
+                match json_repair(&json_str) {
+                    Ok(value) => ToolCallArguments::Parsed(value),
+                    Err(_) => ToolCallArguments::Unparsed(json_str), // Keep as-is if parsing fails
+                }
+            }
+            parsed @ ToolCallArguments::Parsed(_) => parsed,
+        }
     }
 }
 
@@ -262,7 +291,8 @@ mod tests {
     fn test_deserialize_primitive_string() {
         let json_str = r#""simple string""#;
         let actual: ToolCallArguments = serde_json::from_str(json_str).unwrap();
-        let expected = ToolCallArguments::Parsed(json!("simple string"));
+        // When deserializing, string values become Unparsed (to preserve the string as-is)
+        let expected = ToolCallArguments::Unparsed("simple string".to_string());
         assert_eq!(actual, expected);
     }
 

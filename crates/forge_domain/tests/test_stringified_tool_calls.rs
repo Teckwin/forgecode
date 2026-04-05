@@ -4,7 +4,7 @@
 //! containing JSON (like kimi-k2p5-turbo does), we properly parse it and
 //! serialize it back as a JSON object when sending to the API.
 
-use forge_domain::{Context, ContextMessage, Role};
+use forge_domain::{Context, ContextMessage, NormalizeToolCallArguments, Role, Transformer};
 
 /// Test that stringified tool call arguments from API are properly handled
 ///
@@ -50,8 +50,12 @@ fn test_stringified_tool_call_arguments_roundtrip() {
     let context: Context =
         serde_json::from_str(conversation_json).expect("Failed to parse conversation");
 
+    // Apply the NormalizeToolCallArguments transformer to convert Unparsed string arguments
+    // to Parsed JSON objects - this is what should be done before sending to API
+    let normalized = NormalizeToolCallArguments::new().transform(context.clone());
+
     // Find the assistant message with tool calls
-    let assistant_msg = context
+    let assistant_msg = normalized
         .messages
         .iter()
         .find_map(|entry| match &entry.message {
@@ -75,7 +79,8 @@ fn test_stringified_tool_call_arguments_roundtrip() {
     assert_eq!(parsed_args["start_line"], 1);
 
     // Now serialize the context back to JSON (as we would send to API)
-    let serialized = serde_json::to_string(&context).expect("Should serialize");
+    // Use normalized context which has Parsed arguments
+    let serialized = serde_json::to_string(&normalized).expect("Should serialize");
     println!("Serialized: {}", serialized);
 
     // Parse the JSON to verify structure
