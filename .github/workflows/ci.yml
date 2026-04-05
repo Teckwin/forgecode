@@ -175,7 +175,6 @@ jobs:
       with:
         target: ${{ matrix.target }}
     - name: Add Rust target
-      if: ${{ matrix.cross == 'true' }}
       run: rustup target add ${{ matrix.target }}
     - name: Set Rust Flags
       if: '!(contains(matrix.target, ''-unknown-linux-'') || contains(matrix.target, ''-android''))'
@@ -264,7 +263,6 @@ jobs:
       with:
         target: ${{ matrix.target }}
     - name: Add Rust target
-      if: ${{ matrix.cross == 'true' }}
       run: rustup target add ${{ matrix.target }}
     - name: Set Rust Flags
       if: '!(contains(matrix.target, ''-unknown-linux-'') || contains(matrix.target, ''-android''))'
