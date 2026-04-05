@@ -16,7 +16,6 @@ name: ci
 # ----------------------------- END WARNING -------------------------
 # -------------------------------------------------------------------
 
-name: ci
 env:
   RUSTFLAGS: '-Dwarnings'
   OPENROUTER_API_KEY: ${{secrets.OPENROUTER_API_KEY}}
