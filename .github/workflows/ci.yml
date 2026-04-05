@@ -183,10 +183,8 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v6
-    - name: Setup Protobuf Compiler
-      uses: arduino/setup-protoc@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Setup Protoc
+      uses: taiki-e/install-protoc-action@v2
     - name: Setup Cross Toolchain
       if: ${{ matrix.cross == 'false' }}
       uses: taiki-e/setup-cross-toolchain-action@v1
@@ -275,10 +273,8 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v6
-    - name: Setup Protobuf Compiler
-      uses: arduino/setup-protoc@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Setup Protoc
+      uses: taiki-e/install-protoc-action@v2
     - name: Setup Cross Toolchain
       if: ${{ matrix.cross == 'false' }}
       uses: taiki-e/setup-cross-toolchain-action@v1
