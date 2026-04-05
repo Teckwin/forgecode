@@ -16,10 +16,12 @@
 # -------------------------------------------------------------------
 
 name: ci
+
 env:
   RUSTFLAGS: '-Dwarnings'
   OPENROUTER_API_KEY: ${{secrets.OPENROUTER_API_KEY}}
-'on':
+
+on:
   pull_request:
     types:
     - opened
@@ -33,6 +35,7 @@ env:
     - main
     tags:
     - v*
+
 jobs:
   build:
     name: Build and Test
@@ -54,6 +57,7 @@ jobs:
       run: cargo install cargo-llvm-cov
     - name: Generate coverage
       run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+
   zsh_rprompt_perf:
     name: 'Performance: zsh rprompt'
     runs-on: ubuntu-latest
@@ -72,6 +76,7 @@ jobs:
         toolchain: stable
     - name: Run performance benchmark
       run: './scripts/benchmark.sh --threshold 60 zsh rprompt'
+
   draft_release:
     needs:
     - build
@@ -97,9 +102,10 @@ jobs:
     - id: set_output
       name: Export Outputs
       run: echo "crate_release_id=${{ steps.create_release.outputs.id }}" >> $GITHUB_OUTPUT && echo "crate_release_name=${{ steps.create_release.outputs.tag_name }}" >> $GITHUB_OUTPUT
+
   draft_release_pr:
     if: 'github.event_name == ''pull_request'' && contains(github.event.pull_request.labels.*.name, ''ci: build all targets'')'
-    name: Draft Release for PR
+    name: Draft Release PR
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,23 +116,24 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v6
-    - id: set_output
-      name: Set Release Version
-      run: |
-        echo "crate_release_name=pr-build-${{ github.event.number }}" >> $GITHUB_OUTPUT
-        echo "crate_release_id=pr-build-${{ github.event.number }}" >> $GITHUB_OUTPUT
-    - name: Create Draft Release for PR Build
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        fetch-depth: 0
+    - id: create_release
+      name: Draft Release
+      uses: release-drafter/release-drafter@v7
+      with:
+        config-name: release-drafter.yml
+        header: ''
+        version: ${{ github.event.pull_request.title }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        gh release create "pr-build-${{ github.event.number }}" \
-          --title "PR Build #${{ github.event.number }}" \
-          --notes "Auto-generated PR build for testing. SHA: ${{ github.sha }}" \
-          --draft \
-          --prerelease
+    - id: set_output
+      name: Export Outputs
+      run: echo "crate_release_id=${{ steps.create_release.outputs.id }}" >> $GITHUB_OUTPUT && echo "crate_release_name=${{ steps.create_release.outputs.tag_name }}" >> $GITHUB_OUTPUT
+
   build_release:
     needs:
-    - build
     - draft_release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     name: build-release
@@ -207,14 +214,13 @@ jobs:
         RUSTFLAGS: ${{ env.RUSTFLAGS }}
         POSTHOG_API_SECRET: ${{secrets.POSTHOG_API_SECRET}}
         APP_VERSION: ${{ needs.draft_release.outputs.crate_release_name }}
-    - name: Copy Binary
-      run: cp ${{ matrix.binary_path }} ${{ matrix.binary_name }}
-    - name: Upload to Release
-      uses: xresloader/upload-to-github-release@v1
+    - name: Upload Release Binary
+      uses: actions/upload-artifact@v4
       with:
-        release_id: ${{ needs.draft_release.outputs.crate_release_id }}
-        file: ${{ matrix.binary_name }}
+        name: ${{ matrix.binary_name }}
+        path: ${{ matrix.binary_path }}
         overwrite: 'true'
+
   build_release_pr:
     needs:
     - draft_release_pr
@@ -302,5 +308,6 @@ jobs:
         RUSTFLAGS: ${{ env.RUSTFLAGS }}
         POSTHOG_API_SECRET: ${{secrets.POSTHOG_API_SECRET}}
         APP_VERSION: ${{ needs.draft_release_pr.outputs.crate_release_name }}
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
