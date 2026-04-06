@@ -855,9 +855,9 @@
           "default": true
         },
         "enabled": {
-          "description": "Whether sandbox enforcement is enabled.",
+          "description": "Whether sandbox enforcement is enabled. Defaults to `true`.",
           "type": "boolean",
-          "default": false
+          "default": true
         },
         "readonly_paths": {
           "description": "Additional paths the sandbox may read (beyond system defaults).",
