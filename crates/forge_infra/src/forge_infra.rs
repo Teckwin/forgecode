@@ -75,8 +75,8 @@ impl ForgeInfra {
         // Build command executor with sandbox from config
         let mut executor = ForgeCommandExecutorService::new(env.clone(), output_printer.clone());
         if let Some(ref sandbox_settings) = config.sandbox {
-            use forge_sandbox::{SandboxConfig, create_sandbox};
             use forge_sandbox::config::SandboxFallback;
+            use forge_sandbox::{SandboxConfig, create_sandbox};
 
             let sandbox_config = SandboxConfig {
                 cwd: env.cwd.clone(),
