@@ -954,9 +954,7 @@ impl ToolCatalog {
                 message: "Update todo list".to_string(),
             }),
             // No side effects — no permission checks needed
-            ToolCatalog::Followup(_)
-            | ToolCatalog::Skill(_)
-            | ToolCatalog::TodoRead(_) => None,
+            ToolCatalog::Followup(_) | ToolCatalog::Skill(_) | ToolCatalog::TodoRead(_) => None,
         }
     }
 

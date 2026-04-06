@@ -157,7 +157,9 @@ impl ForgeCommandExecutorService {
             } else {
                 match self.sandbox_fallback {
                     SandboxFallback::Allow => {
-                        tracing::debug!("Sandbox not available, executing unsandboxed (fallback=allow)");
+                        tracing::debug!(
+                            "Sandbox not available, executing unsandboxed (fallback=allow)"
+                        );
                         command.clone()
                     }
                     SandboxFallback::Deny => {

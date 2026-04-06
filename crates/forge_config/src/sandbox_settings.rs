@@ -51,7 +51,10 @@ mod tests {
 
     #[test]
     fn default_sandbox_fallback_is_deny() {
-        assert_eq!(SandboxSettings::default().sandbox_fallback, SandboxFallback::Deny);
+        assert_eq!(
+            SandboxSettings::default().sandbox_fallback,
+            SandboxFallback::Deny
+        );
     }
 
     #[test]
