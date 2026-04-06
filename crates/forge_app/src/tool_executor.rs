@@ -125,6 +125,57 @@ impl<
         }
     }
 
+    /// Normalizes a path and validates it falls within allowed boundaries
+    /// (CWD or ~/.forge/). Returns error if the path escapes the allowed scope.
+    fn validate_path_scope(&self, raw_path: &str) -> anyhow::Result<String> {
+        let normalized = self.normalize_path(raw_path.to_string());
+        let path = PathBuf::from(&normalized);
+
+        // Canonicalize to resolve symlinks and .. components.
+        // For new files that don't exist yet, canonicalize the parent.
+        let canonical = if path.exists() {
+            path.canonicalize()?
+        } else if let Some(parent) = path.parent() {
+            if parent.exists() {
+                parent
+                    .canonicalize()?
+                    .join(path.file_name().unwrap_or_default())
+            } else {
+                path.clone()
+            }
+        } else {
+            path.clone()
+        };
+
+        let env = self.services.get_environment();
+        let cwd = env.cwd.canonicalize().unwrap_or(env.cwd.clone());
+
+        // Allow paths within CWD
+        if canonical.starts_with(&cwd) {
+            return Ok(canonical.display().to_string());
+        }
+
+        // Allow paths within ~/.forge/ (config files)
+        if let Some(home) = &env.home {
+            let home_canonical = home.canonicalize().unwrap_or(home.clone());
+            let forge_dir = home_canonical.join(".forge");
+            if canonical.starts_with(&forge_dir) {
+                return Ok(canonical.display().to_string());
+            }
+        }
+
+        // Allow /tmp paths (temporary files)
+        if canonical.starts_with("/tmp") || canonical.starts_with("/var/folders") {
+            return Ok(canonical.display().to_string());
+        }
+
+        Err(anyhow::anyhow!(
+            "Path '{}' is outside the allowed scope. Files must be within the working directory '{}'.",
+            raw_path,
+            cwd.display()
+        ))
+    }
+
     async fn create_temp_file(
         &self,
         prefix: &str,
@@ -155,7 +206,7 @@ impl<
     ) -> anyhow::Result<ToolOperation> {
         Ok(match input {
             ToolCatalog::Read(input) => {
-                let normalized_path = self.normalize_path(input.file_path.clone());
+                let normalized_path = self.validate_path_scope(&input.file_path)?;
                 let output = self
                     .services
                     .read(
@@ -168,7 +219,7 @@ impl<
                 (input, output).into()
             }
             ToolCatalog::Write(input) => {
-                let normalized_path = self.normalize_path(input.file_path.clone());
+                let normalized_path = self.validate_path_scope(&input.file_path)?;
                 let output = self
                     .services
                     .write(normalized_path, input.content.clone(), input.overwrite)
@@ -226,12 +277,12 @@ impl<
                 ToolOperation::CodebaseSearch { output }
             }
             ToolCatalog::Remove(input) => {
-                let normalized_path = self.normalize_path(input.path.clone());
+                let normalized_path = self.validate_path_scope(&input.path)?;
                 let output = self.services.remove(normalized_path).await?;
                 (input, output).into()
             }
             ToolCatalog::Patch(input) => {
-                let normalized_path = self.normalize_path(input.file_path.clone());
+                let normalized_path = self.validate_path_scope(&input.file_path)?;
                 let output = self
                     .services
                     .patch(
@@ -244,7 +295,7 @@ impl<
                 (input, output).into()
             }
             ToolCatalog::Undo(input) => {
-                let normalized_path = self.normalize_path(input.path.clone());
+                let normalized_path = self.validate_path_scope(&input.path)?;
                 let output = self.services.undo(normalized_path).await?;
                 (input, output).into()
             }
