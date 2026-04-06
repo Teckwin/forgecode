@@ -155,3 +155,123 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), AdapterError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn execute_migration_create_file_action() {
+        let tmp = TempDir::new().unwrap();
+        let file_path = tmp.path().join("subdir").join("config.json");
+        let plan = MigrationPlan {
+            description: "test".to_string(),
+            source_tool: "a".to_string(),
+            dest_tool: "b".to_string(),
+            actions: vec![MigrationAction::CreateFile {
+                path: file_path.clone(),
+                content: r#"{"hello":"world"}"#.to_string(),
+            }],
+        };
+
+        execute_migration(&plan).unwrap();
+
+        let content = std::fs::read_to_string(&file_path).unwrap();
+        assert_eq!(content, r#"{"hello":"world"}"#);
+    }
+
+    #[test]
+    fn execute_migration_copy_file_action() {
+        let tmp = TempDir::new().unwrap();
+        let src = tmp.path().join("source.txt");
+        std::fs::write(&src, "original content").unwrap();
+
+        let dest = tmp.path().join("dest_dir").join("copied.txt");
+        let plan = MigrationPlan {
+            description: "test".to_string(),
+            source_tool: "a".to_string(),
+            dest_tool: "b".to_string(),
+            actions: vec![MigrationAction::CopyFile {
+                src: src.clone(),
+                dest: dest.clone(),
+            }],
+        };
+
+        execute_migration(&plan).unwrap();
+
+        let content = std::fs::read_to_string(&dest).unwrap();
+        assert_eq!(content, "original content");
+    }
+
+    #[test]
+    fn execute_migration_copy_directory_action() {
+        let tmp = TempDir::new().unwrap();
+        let src_dir = tmp.path().join("src_tree");
+        std::fs::create_dir_all(src_dir.join("nested")).unwrap();
+        std::fs::write(src_dir.join("a.txt"), "file a").unwrap();
+        std::fs::write(src_dir.join("nested").join("b.txt"), "file b").unwrap();
+
+        let dest_dir = tmp.path().join("dest_tree");
+        let plan = MigrationPlan {
+            description: "test".to_string(),
+            source_tool: "a".to_string(),
+            dest_tool: "b".to_string(),
+            actions: vec![MigrationAction::CopyDirectory {
+                src: src_dir.clone(),
+                dest: dest_dir.clone(),
+            }],
+        };
+
+        execute_migration(&plan).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dest_dir.join("a.txt")).unwrap(),
+            "file a"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dest_dir.join("nested").join("b.txt")).unwrap(),
+            "file b"
+        );
+    }
+
+    #[test]
+    fn execute_migration_empty_plan_succeeds() {
+        let plan = MigrationPlan {
+            description: "empty".to_string(),
+            source_tool: "a".to_string(),
+            dest_tool: "b".to_string(),
+            actions: vec![],
+        };
+
+        let result = execute_migration(&plan);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn execute_migration_multiple_actions_in_order() {
+        let tmp = TempDir::new().unwrap();
+        let file1 = tmp.path().join("first.txt");
+        let file2 = tmp.path().join("second.txt");
+        let plan = MigrationPlan {
+            description: "multi".to_string(),
+            source_tool: "a".to_string(),
+            dest_tool: "b".to_string(),
+            actions: vec![
+                MigrationAction::CreateFile {
+                    path: file1.clone(),
+                    content: "one".to_string(),
+                },
+                MigrationAction::CreateFile {
+                    path: file2.clone(),
+                    content: "two".to_string(),
+                },
+            ],
+        };
+
+        execute_migration(&plan).unwrap();
+
+        assert_eq!(std::fs::read_to_string(&file1).unwrap(), "one");
+        assert_eq!(std::fs::read_to_string(&file2).unwrap(), "two");
+    }
+}

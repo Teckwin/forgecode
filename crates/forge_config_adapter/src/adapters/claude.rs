@@ -244,3 +244,132 @@ fn read_rules_dir(rules_dir: &Path) -> Result<Vec<RuleFile>, AdapterError> {
     rules.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(rules)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ConfigAdapter;
+    use tempfile::TempDir;
+
+    #[test]
+    fn detect_returns_true_when_claude_dir_exists() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".claude")).unwrap();
+        assert!(ClaudeAdapter.detect(tmp.path()));
+    }
+
+    #[test]
+    fn detect_returns_false_when_claude_dir_missing() {
+        let tmp = TempDir::new().unwrap();
+        assert!(!ClaudeAdapter.detect(tmp.path()));
+    }
+
+    #[test]
+    fn read_parses_valid_settings_json() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join("settings.json"),
+            r#"{
+                "model": "claude-sonnet-4-20250514",
+                "provider": "anthropic",
+                "permissions": {
+                    "allowedReadPaths": ["/tmp"],
+                    "allowedCommands": ["git"],
+                    "deniedCommands": ["rm"]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(config.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(config.provider.as_deref(), Some("anthropic"));
+        assert_eq!(config.permissions.allowed_read_paths, vec!["/tmp"]);
+        assert_eq!(config.permissions.allowed_commands, vec!["git"]);
+        assert_eq!(config.permissions.denied_commands, vec!["rm"]);
+    }
+
+    #[test]
+    fn read_loads_claude_md_as_custom_instructions() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".claude")).unwrap();
+        std::fs::write(tmp.path().join("CLAUDE.md"), "Be concise.").unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(config.custom_instructions.as_deref(), Some("Be concise."));
+    }
+
+    #[test]
+    fn read_discovers_mcp_json_servers() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join(".mcp.json"),
+            r#"{
+                "mcpServers": {
+                    "context7": {
+                        "command": "npx",
+                        "args": ["-y", "@context7/mcp"],
+                        "env": { "TOKEN": "abc" }
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(config.mcp_servers.len(), 1);
+        let srv = config.mcp_servers.get("context7").unwrap();
+        assert_eq!(srv.command, "npx");
+        assert_eq!(srv.args, vec!["-y", "@context7/mcp"]);
+        assert_eq!(srv.env.get("TOKEN").map(|s| s.as_str()), Some("abc"));
+    }
+
+    #[test]
+    fn read_falls_back_to_root_mcp_json() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".claude")).unwrap();
+        std::fs::write(
+            tmp.path().join(".mcp.json"),
+            r#"{ "mcpServers": { "srv": { "command": "node" } } }"#,
+        )
+        .unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(config.mcp_servers.len(), 1);
+        assert_eq!(config.mcp_servers.get("srv").unwrap().command, "node");
+    }
+
+    #[test]
+    fn read_loads_rules_directory() {
+        let tmp = TempDir::new().unwrap();
+        let rules_dir = tmp.path().join(".claude").join("rules");
+        std::fs::create_dir_all(&rules_dir).unwrap();
+        std::fs::write(rules_dir.join("a_safety.md"), "No deletions.").unwrap();
+        std::fs::write(rules_dir.join("b_style.md"), "Use Rust idioms.").unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(config.rules.len(), 2);
+        // Rules should be sorted by path
+        assert_eq!(config.rules[0].path.to_str().unwrap(), "a_safety.md");
+        assert_eq!(config.rules[0].content, "No deletions.");
+        assert_eq!(config.rules[1].path.to_str().unwrap(), "b_style.md");
+        assert_eq!(config.rules[1].content, "Use Rust idioms.");
+    }
+
+    #[test]
+    fn read_empty_project_returns_default_config() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".claude")).unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert!(config.model.is_none());
+        assert!(config.provider.is_none());
+        assert!(config.mcp_servers.is_empty());
+        assert!(config.custom_instructions.is_none());
+        assert!(config.rules.is_empty());
+    }
+}

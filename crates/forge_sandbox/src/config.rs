@@ -32,3 +32,57 @@ impl Default for SandboxConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_has_expected_values() {
+        let config = SandboxConfig::default();
+        assert_eq!(config.cwd, PathBuf::from("."));
+        assert!(config.readonly_paths.is_empty());
+        assert!(config.writable_paths.is_empty());
+        assert!(!config.allow_network);
+        assert!(config.enabled);
+    }
+
+    #[test]
+    fn config_with_custom_paths_round_trips_through_serde_json() {
+        let config = SandboxConfig {
+            cwd: PathBuf::from("/home/user/project"),
+            readonly_paths: vec![PathBuf::from("/usr/lib"), PathBuf::from("/opt/tools")],
+            writable_paths: vec![PathBuf::from("/tmp/output")],
+            allow_network: true,
+            enabled: false,
+        };
+
+        let json = serde_json::to_string(&config).expect("serialize should succeed");
+        let deserialized: SandboxConfig =
+            serde_json::from_str(&json).expect("deserialize should succeed");
+
+        assert_eq!(deserialized.cwd, config.cwd);
+        assert_eq!(deserialized.readonly_paths, config.readonly_paths);
+        assert_eq!(deserialized.writable_paths, config.writable_paths);
+        assert_eq!(deserialized.allow_network, config.allow_network);
+        assert_eq!(deserialized.enabled, config.enabled);
+    }
+
+    #[test]
+    fn config_deserializes_from_json_string() {
+        let json = r#"{
+            "cwd": "/workspace",
+            "readonly_paths": ["/data"],
+            "writable_paths": [],
+            "allow_network": false,
+            "enabled": true
+        }"#;
+
+        let config: SandboxConfig = serde_json::from_str(json).expect("should parse");
+        assert_eq!(config.cwd, PathBuf::from("/workspace"));
+        assert_eq!(config.readonly_paths, vec![PathBuf::from("/data")]);
+        assert!(config.writable_paths.is_empty());
+        assert!(!config.allow_network);
+        assert!(config.enabled);
+    }
+}

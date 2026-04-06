@@ -220,6 +220,7 @@ fn parse_permissions_yaml(content: &str) -> NormalizedPermissions {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ConfigAdapter;
 
     #[test]
     fn test_parse_permissions_yaml() {
@@ -238,5 +239,144 @@ denied_commands:
         assert_eq!(perms.allowed_commands, vec!["git", "cargo"]);
         assert_eq!(perms.denied_commands, vec!["rm"]);
         assert!(perms.allowed_write_paths.is_empty());
+    }
+
+    #[test]
+    fn test_parse_permissions_yaml_with_all_fields() {
+        let yaml = r#"
+allowed_read_paths:
+  - /read
+allowed_write_paths:
+  - /write
+allowed_commands:
+  - git
+denied_commands:
+  - rm
+"#;
+        let perms = parse_permissions_yaml(yaml);
+        assert_eq!(perms.allowed_read_paths, vec!["/read"]);
+        assert_eq!(perms.allowed_write_paths, vec!["/write"]);
+        assert_eq!(perms.allowed_commands, vec!["git"]);
+        assert_eq!(perms.denied_commands, vec!["rm"]);
+    }
+
+    #[test]
+    fn test_parse_permissions_yaml_ignores_comments_and_blanks() {
+        let yaml = r#"
+# This is a comment
+allowed_commands:
+
+  - git
+  # inline comment is not stripped but this line starts with #
+  - cargo
+"#;
+        let perms = parse_permissions_yaml(yaml);
+        assert_eq!(perms.allowed_commands, vec!["git", "cargo"]);
+    }
+
+    #[test]
+    fn test_parse_forge_toml_basic() {
+        let toml = r#"
+model = "claude-sonnet-4-20250514"
+provider = "anthropic"
+custom_instructions = "Be helpful."
+"#;
+        let mut config = NormalizedConfig::default();
+        parse_forge_toml(toml, Path::new("test.toml"), &mut config).unwrap();
+        assert_eq!(config.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(config.provider.as_deref(), Some("anthropic"));
+        assert_eq!(config.custom_instructions.as_deref(), Some("Be helpful."));
+    }
+
+    #[test]
+    fn test_parse_forge_toml_with_agents() {
+        let toml = r#"
+model = "default-model"
+
+[agents.coder]
+model = "gpt-4"
+provider = "openai"
+api_key_env = "OPENAI_KEY"
+base_url = "https://api.openai.com"
+max_tokens = 8192
+
+[agents.reviewer]
+model = "claude-opus-4-20250514"
+provider = "anthropic"
+"#;
+        let mut config = NormalizedConfig::default();
+        parse_forge_toml(toml, Path::new("test.toml"), &mut config).unwrap();
+        assert_eq!(config.model.as_deref(), Some("default-model"));
+        assert_eq!(config.agents.len(), 2);
+
+        let coder = config.agents.get("coder").unwrap();
+        assert_eq!(coder.model.as_deref(), Some("gpt-4"));
+        assert_eq!(coder.provider.as_deref(), Some("openai"));
+        assert_eq!(coder.api_key_env.as_deref(), Some("OPENAI_KEY"));
+        assert_eq!(coder.base_url.as_deref(), Some("https://api.openai.com"));
+        assert_eq!(coder.max_tokens, Some(8192));
+
+        let reviewer = config.agents.get("reviewer").unwrap();
+        assert_eq!(reviewer.model.as_deref(), Some("claude-opus-4-20250514"));
+        assert_eq!(reviewer.provider.as_deref(), Some("anthropic"));
+        assert!(reviewer.api_key_env.is_none());
+    }
+
+    #[test]
+    fn test_parse_forge_toml_invalid_returns_error() {
+        let toml = "this is not valid toml [[[";
+        let mut config = NormalizedConfig::default();
+        let result = parse_forge_toml(toml, Path::new("bad.toml"), &mut config);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, AdapterError::Toml { .. }),
+            "Expected Toml error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn test_parse_mcp_servers_json() {
+        let json_str = r#"{
+            "context7": {
+                "command": "npx",
+                "args": ["-y", "@context7/mcp"],
+                "env": { "TOKEN": "abc" }
+            },
+            "bare": {
+                "command": "node"
+            }
+        }"#;
+        let parsed: serde_json::Value = serde_json::from_str(json_str).unwrap();
+        let servers = parse_mcp_servers_json(parsed.as_object().unwrap());
+
+        assert_eq!(servers.len(), 2);
+        let ctx = servers.get("context7").unwrap();
+        assert_eq!(ctx.command, "npx");
+        assert_eq!(ctx.args, vec!["-y", "@context7/mcp"]);
+        assert_eq!(ctx.env.get("TOKEN").map(|s| s.as_str()), Some("abc"));
+
+        let bare = servers.get("bare").unwrap();
+        assert_eq!(bare.command, "node");
+        assert!(bare.args.is_empty());
+        assert!(bare.env.is_empty());
+    }
+
+    #[test]
+    fn write_returns_read_only_error() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let config = NormalizedConfig::default();
+        let result = ForgeLegacyAdapter.write(tmp.path(), &config);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, AdapterError::ReadOnly(ref s) if s == "forge_legacy"),
+            "Expected ReadOnly error, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn tool_name_returns_forge_legacy() {
+        assert_eq!(ForgeLegacyAdapter.tool_name(), "forge_legacy");
     }
 }

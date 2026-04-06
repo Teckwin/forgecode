@@ -111,3 +111,134 @@ impl Sandbox for MacOsSandbox {
         Path::new("/usr/bin/sandbox-exec").exists()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn make_config() -> SandboxConfig {
+        SandboxConfig {
+            cwd: PathBuf::from("/project"),
+            readonly_paths: vec![],
+            writable_paths: vec![],
+            allow_network: false,
+            enabled: true,
+        }
+    }
+
+    #[test]
+    fn profile_includes_cwd_as_read_write() {
+        let sandbox = MacOsSandbox::new(make_config());
+        let working_dir = Path::new("/my/working/dir");
+        let profile = sandbox.generate_profile(working_dir);
+
+        assert!(
+            profile.contains("(allow file-read* (subpath \"/my/working/dir\"))"),
+            "profile should allow file-read on working dir"
+        );
+        assert!(
+            profile.contains("(allow file-write* (subpath \"/my/working/dir\"))"),
+            "profile should allow file-write on working dir"
+        );
+    }
+
+    #[test]
+    fn profile_includes_readonly_paths_as_read_only() {
+        let mut config = make_config();
+        config.readonly_paths = vec![
+            PathBuf::from("/data/shared"),
+            PathBuf::from("/opt/tools"),
+        ];
+        let sandbox = MacOsSandbox::new(config);
+        let profile = sandbox.generate_profile(Path::new("/project"));
+
+        assert!(profile.contains("(allow file-read* (subpath \"/data/shared\"))"));
+        assert!(profile.contains("(allow file-read* (subpath \"/opt/tools\"))"));
+        // readonly_paths should NOT have file-write
+        // Count occurrences of file-write for these paths (should be zero)
+        assert!(
+            !profile.contains("(allow file-write* (subpath \"/data/shared\"))"),
+            "readonly paths should not get write access"
+        );
+        assert!(
+            !profile.contains("(allow file-write* (subpath \"/opt/tools\"))"),
+            "readonly paths should not get write access"
+        );
+    }
+
+    #[test]
+    fn profile_denies_network_when_allow_network_is_false() {
+        let sandbox = MacOsSandbox::new(make_config());
+        let profile = sandbox.generate_profile(Path::new("/project"));
+
+        assert!(
+            !profile.contains("(allow network*)"),
+            "profile should not allow full network access"
+        );
+        assert!(
+            profile.contains("(deny default)"),
+            "profile should deny by default"
+        );
+    }
+
+    #[test]
+    fn profile_allows_network_when_allow_network_is_true() {
+        let mut config = make_config();
+        config.allow_network = true;
+        let sandbox = MacOsSandbox::new(config);
+        let profile = sandbox.generate_profile(Path::new("/project"));
+
+        assert!(
+            profile.contains("(allow network*)"),
+            "profile should allow full network access"
+        );
+    }
+
+    #[test]
+    fn profile_includes_writable_paths_as_read_write() {
+        let mut config = make_config();
+        config.writable_paths = vec![PathBuf::from("/tmp/output")];
+        let sandbox = MacOsSandbox::new(config);
+        let profile = sandbox.generate_profile(Path::new("/project"));
+
+        assert!(profile.contains("(allow file-read* (subpath \"/tmp/output\"))"));
+        assert!(profile.contains("(allow file-write* (subpath \"/tmp/output\"))"));
+    }
+
+    #[test]
+    fn wrap_command_produces_sandbox_exec_format() {
+        let sandbox = MacOsSandbox::new(make_config());
+        let result = sandbox
+            .wrap_command("echo hello", Path::new("/project"))
+            .expect("wrap_command should succeed");
+
+        assert!(
+            result.starts_with("sandbox-exec -p '"),
+            "should start with sandbox-exec -p"
+        );
+        assert!(
+            result.contains("/bin/sh -c '"),
+            "should invoke /bin/sh -c"
+        );
+        assert!(
+            result.contains("echo hello"),
+            "should contain the original command"
+        );
+    }
+
+    #[test]
+    fn wrap_command_escapes_single_quotes_in_command() {
+        let sandbox = MacOsSandbox::new(make_config());
+        let result = sandbox
+            .wrap_command("echo 'hello world'", Path::new("/project"))
+            .expect("wrap_command should succeed");
+
+        // Single quotes within the command should be escaped as '\''
+        assert!(
+            result.contains("echo '\\''hello world'\\''"),
+            "single quotes in command should be escaped: {}",
+            result
+        );
+    }
+}

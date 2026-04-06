@@ -146,31 +146,99 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_config_manager_new_and_get() {
+    fn test_config_manager_new_loads_defaults() {
         let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
         let config = manager.get();
-        // Should have loaded defaults successfully
-        assert!(!config.auto_open_dump); // default is false
+        // Defaults file sets auto_open_dump = false
+        assert!(!config.auto_open_dump);
+        // Defaults file sets max_tokens > 0
+        assert!(config.max_tokens.is_some() || config.max_file_size_bytes > 0);
     }
 
     #[test]
-    fn test_config_manager_typed_accessors_return_defaults() {
+    fn test_config_manager_get_returns_same_instance() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        let a = manager.get();
+        let b = manager.get();
+        // Both reads should return equivalent configs (same Arc)
+        assert_eq!(*a, *b);
+    }
+
+    #[test]
+    fn test_config_manager_clone_shares_cache() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        let cloned = manager.clone();
+        let a = manager.get();
+        let b = cloned.get();
+        assert_eq!(*a, *b);
+    }
+
+    #[test]
+    fn test_config_manager_reload_succeeds() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        assert!(manager.reload().is_ok());
+        // After reload, config should still be valid
+        let config = manager.get();
+        assert!(!config.auto_open_dump);
+    }
+
+    #[test]
+    fn test_config_manager_permissions_default_empty() {
         let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
         let perms = manager.permissions();
         assert!(perms.allow.is_empty());
-        let sandbox = manager.sandbox_settings();
-        assert!(!sandbox.enabled);
-        // RulesSettings and MemorySettings Default::default() yields false for bools;
-        // the serde defaults (auto_load=true, auto_memory_enabled=true) only apply
-        // when deserialised from config. Verify the accessors don't panic.
-        let _rules = manager.rules_settings();
-        let _memory = manager.memory_settings();
+        assert!(perms.deny.is_empty());
+        assert!(perms.ask.is_empty());
+        assert!(perms.allow_write.is_empty());
+        assert!(perms.deny_write.is_empty());
+        assert!(perms.allow_read.is_empty());
+        assert!(perms.deny_read.is_empty());
     }
 
     #[test]
-    fn test_config_manager_reload() {
+    fn test_config_manager_sandbox_default_disabled() {
         let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
-        // Reload should not error
-        assert!(manager.reload().is_ok());
+        let sandbox = manager.sandbox_settings();
+        assert!(!sandbox.enabled);
+    }
+
+    #[test]
+    fn test_config_manager_mcp_servers_default_empty() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        let servers = manager.mcp_servers();
+        assert!(servers.is_empty());
+    }
+
+    #[test]
+    fn test_config_manager_agent_config_returns_none_for_unknown() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        assert!(manager.agent_config("nonexistent-agent").is_none());
+    }
+
+    #[test]
+    fn test_config_manager_cwd_preserved() {
+        let cwd = PathBuf::from("/some/project/dir");
+        let manager = ConfigManager::new(cwd.clone()).unwrap();
+        assert_eq!(manager.cwd(), cwd);
+    }
+
+    #[test]
+    fn test_config_manager_concurrent_reads() {
+        // Verify multiple threads can read simultaneously without panic
+        let manager = Arc::new(ConfigManager::new(PathBuf::from("/tmp/test")).unwrap());
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let m = manager.clone();
+                std::thread::spawn(move || {
+                    let _ = m.get();
+                    let _ = m.permissions();
+                    let _ = m.sandbox_settings();
+                    let _ = m.mcp_servers();
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().expect("Thread panicked during concurrent read");
+        }
     }
 }

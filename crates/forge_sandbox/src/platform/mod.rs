@@ -66,3 +66,71 @@ pub fn create_sandbox(config: SandboxConfig) -> Box<dyn Sandbox> {
 
     Box::new(noop::NoopSandbox)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn create_sandbox_returns_sandbox_instance() {
+        let config = SandboxConfig::default();
+        let sandbox = create_sandbox(config);
+        // Should be able to call trait methods on the returned box
+        let _ = sandbox.is_available();
+    }
+
+    #[test]
+    fn disabled_config_returns_noop_sandbox() {
+        let config = SandboxConfig {
+            cwd: PathBuf::from("/project"),
+            readonly_paths: vec![],
+            writable_paths: vec![],
+            allow_network: false,
+            enabled: false,
+        };
+        let sandbox = create_sandbox(config);
+
+        // A noop sandbox returns the command unchanged
+        let cmd = "echo test";
+        let result = sandbox
+            .wrap_command(cmd, Path::new("/project"))
+            .expect("wrap_command should succeed");
+        assert_eq!(
+            result, cmd,
+            "disabled sandbox should return the command unchanged (noop behavior)"
+        );
+    }
+
+    #[test]
+    fn enabled_sandbox_is_available() {
+        let config = SandboxConfig::default();
+        let sandbox = create_sandbox(config);
+        // On any platform, create_sandbox either returns the platform sandbox
+        // or falls back to noop, both of which report is_available() == true
+        assert!(sandbox.is_available());
+    }
+
+    #[test]
+    fn wrap_command_produces_valid_shell_syntax() {
+        let config = SandboxConfig {
+            cwd: PathBuf::from("/workspace"),
+            readonly_paths: vec![PathBuf::from("/usr/share")],
+            writable_paths: vec![PathBuf::from("/tmp/out")],
+            allow_network: false,
+            enabled: true,
+        };
+        let sandbox = create_sandbox(config);
+        let result = sandbox
+            .wrap_command("echo hello && ls", Path::new("/workspace"))
+            .expect("wrap_command should succeed");
+
+        // The result should be a non-empty string that is valid for passing to a shell
+        assert!(!result.is_empty());
+        // It should contain the original command somewhere
+        assert!(
+            result.contains("echo hello"),
+            "wrapped command should contain the original command text"
+        );
+    }
+}
