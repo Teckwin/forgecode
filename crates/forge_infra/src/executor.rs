@@ -5,6 +5,7 @@ use std::sync::Arc;
 use forge_app::CommandInfra;
 use forge_domain::{CommandOutput, ConsoleWriter as OutputPrinterTrait, Environment};
 use forge_sandbox::Sandbox;
+use forge_sandbox::config::SandboxFallback;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -22,6 +23,9 @@ pub struct ForgeCommandExecutorService {
 
     // Optional OS-level sandbox for command execution
     sandbox: Option<Arc<dyn Sandbox>>,
+
+    // Behavior when sandbox wrapping fails or is unavailable
+    sandbox_fallback: SandboxFallback,
 }
 
 impl std::fmt::Debug for ForgeCommandExecutorService {
@@ -40,12 +44,19 @@ impl ForgeCommandExecutorService {
             output_printer,
             ready: Arc::new(Mutex::new(())),
             sandbox: None,
+            sandbox_fallback: SandboxFallback::default(),
         }
     }
 
     /// Set the sandbox implementation for command execution.
     pub fn with_sandbox(mut self, sandbox: Box<dyn Sandbox>) -> Self {
         self.sandbox = Some(Arc::from(sandbox));
+        self
+    }
+
+    /// Set the sandbox fallback behavior.
+    pub fn with_sandbox_fallback(mut self, fallback: SandboxFallback) -> Self {
+        self.sandbox_fallback = fallback;
         self
     }
 
@@ -131,14 +142,30 @@ impl ForgeCommandExecutorService {
                         tracing::debug!(original = %command, wrapped = %wrapped, "Sandboxed command");
                         wrapped
                     }
-                    Err(e) => {
-                        tracing::warn!(error = ?e, "Sandbox wrap failed, executing unsandboxed");
-                        command.clone()
-                    }
+                    Err(e) => match self.sandbox_fallback {
+                        SandboxFallback::Allow => {
+                            tracing::warn!(error = ?e, "Sandbox wrap failed, executing unsandboxed (fallback=allow)");
+                            command.clone()
+                        }
+                        SandboxFallback::Deny => {
+                            return Err(anyhow::anyhow!(
+                                "Command blocked: sandbox wrapping failed and sandbox_fallback is 'deny'. Error: {e}"
+                            ));
+                        }
+                    },
                 }
             } else {
-                tracing::debug!("Sandbox not available, executing unsandboxed");
-                command.clone()
+                match self.sandbox_fallback {
+                    SandboxFallback::Allow => {
+                        tracing::debug!("Sandbox not available, executing unsandboxed (fallback=allow)");
+                        command.clone()
+                    }
+                    SandboxFallback::Deny => {
+                        return Err(anyhow::anyhow!(
+                            "Command blocked: sandbox not available and sandbox_fallback is 'deny'"
+                        ));
+                    }
+                }
             }
         } else {
             command.clone()

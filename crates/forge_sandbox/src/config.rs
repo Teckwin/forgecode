@@ -2,6 +2,17 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+/// What to do when sandbox wrapping fails or sandbox is unavailable.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SandboxFallback {
+    /// Block the command (fail-closed).
+    #[default]
+    Deny,
+    /// Run the command without sandbox (fail-open).
+    Allow,
+}
+
 /// Configuration for the sandbox environment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SandboxConfig {
@@ -19,6 +30,10 @@ pub struct SandboxConfig {
 
     /// Whether sandboxing is enabled at all. When false, commands run unsandboxed.
     pub enabled: bool,
+
+    /// Behavior when sandbox wrapping fails or sandbox is unavailable.
+    #[serde(default)]
+    pub sandbox_fallback: SandboxFallback,
 }
 
 impl Default for SandboxConfig {
@@ -29,6 +44,7 @@ impl Default for SandboxConfig {
             writable_paths: Vec::new(),
             allow_network: false,
             enabled: true,
+            sandbox_fallback: SandboxFallback::Deny,
         }
     }
 }
@@ -45,6 +61,7 @@ mod tests {
         assert!(config.writable_paths.is_empty());
         assert!(!config.allow_network);
         assert!(config.enabled);
+        assert_eq!(config.sandbox_fallback, SandboxFallback::Deny);
     }
 
     #[test]
@@ -55,6 +72,7 @@ mod tests {
             writable_paths: vec![PathBuf::from("/tmp/output")],
             allow_network: true,
             enabled: false,
+            sandbox_fallback: SandboxFallback::Allow,
         };
 
         let json = serde_json::to_string(&config).expect("serialize should succeed");
