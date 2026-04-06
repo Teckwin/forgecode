@@ -1,0 +1,41 @@
+[package]
+name = "forge_vec_store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Local vector store for code search, powered by SQLite + sqlite-vec"
+
+[dependencies]
+# Core
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+# SQLite (must match workspace's libsqlite3-sys 0.36 via diesel)
+rusqlite = { version = "0.38", features = ["bundled"] }
+sqlite-vec = "0.1"
+zerocopy = { version = "0.7", features = ["derive"] }
+
+# Fuzzy search
+nucleo-matcher = "0.3"
+
+# Syntax validation (tree-sitter)
+tree-sitter = "0.24"
+tree-sitter-rust = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-python = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-json = "0.24"
+
+# Domain types (for bridge layer)
+forge_domain = { path = "../forge_domain" }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

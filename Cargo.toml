@@ -158,6 +158,7 @@ forge_config_adapter = { path = "crates/forge_config_adapter" }
 forge_json_repair = { path = "crates/forge_json_repair" }
 forge_select = { path = "crates/forge_select" }
 forge_test_kit = { path = "crates/forge_test_kit" }
+forge_vec_store = { path = "crates/forge_vec_store" }
 
 forge_markdown_stream = { path = "crates/forge_markdown_stream" }
 forge_config = { path = "crates/forge_config" }
