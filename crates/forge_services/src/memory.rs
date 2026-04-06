@@ -97,8 +97,9 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + DirectoryReaderIn
                     }
                 }
             }
-            Err(_) => {
-                // Directory doesn't exist — that's fine.
+            Err(e) => {
+                // Log at debug — directory not existing is expected for fresh projects
+                tracing::debug!(dir = %dir.display(), error = %e, "Memory directory not readable (may not exist)");
             }
         }
 

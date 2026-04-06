@@ -93,13 +93,22 @@ impl Sandbox for MacOsSandbox {
     fn wrap_command(&self, command: &str, working_dir: &Path) -> anyhow::Result<String> {
         let profile = self.generate_profile(working_dir);
 
-        // Escape single quotes in profile and command for shell embedding
-        let escaped_profile = profile.replace('\'', "'\\''");
+        // Write profile to a temp file to avoid shell injection via inline embedding.
+        // Using a file reference is safer than embedding the profile string in a shell command.
+        let mut tmp = tempfile::NamedTempFile::new()?;
+        std::io::Write::write_all(&mut tmp, profile.as_bytes())?;
+        let profile_path = tmp.into_temp_path();
+        // Leak the temp path so it persists for the duration of command execution.
+        // The OS will clean up /tmp eventually.
+        let profile_path_str = profile_path.to_string_lossy().to_string();
+        std::mem::forget(profile_path);
+
+        // Escape single quotes in command for shell embedding
         let escaped_command = command.replace('\'', "'\\''");
 
         Ok(format!(
-            "sandbox-exec -p '{}' /bin/sh -c '{}'",
-            escaped_profile, escaped_command
+            "sandbox-exec -f '{}' /bin/sh -c '{}'",
+            profile_path_str, escaped_command
         ))
     }
 
@@ -208,8 +217,9 @@ mod tests {
             .expect("wrap_command should succeed");
 
         assert!(
-            result.starts_with("sandbox-exec -p '"),
-            "should start with sandbox-exec -p"
+            result.starts_with("sandbox-exec -f "),
+            "should start with sandbox-exec -f (file-based profile): {}",
+            result
         );
         assert!(result.contains("/bin/sh -c '"), "should invoke /bin/sh -c");
         assert!(

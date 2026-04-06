@@ -83,8 +83,8 @@ impl<F: EnvironmentInfra + FileReaderInfra + CommandInfra + DirectoryReaderInfra
                     }
                 }
             }
-            Err(_) => {
-                // Directory doesn't exist or isn't readable — that's fine.
+            Err(e) => {
+                tracing::debug!(dir = %dir.display(), error = %e, "Rules directory not readable (may not exist)");
             }
         }
         rules

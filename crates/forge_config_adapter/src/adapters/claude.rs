@@ -123,14 +123,41 @@ impl crate::ConfigAdapter for ClaudeAdapter {
             std::fs::write(&mcp_path, mcp_json).map_err(|e| AdapterError::io(&mcp_path, e))?;
         }
 
-        // Write rules
+        // Write rules (validate paths don't escape rules directory)
         if !config.rules.is_empty() {
             let rules_dir = claude_dir.join("rules");
             std::fs::create_dir_all(&rules_dir).map_err(|e| AdapterError::io(&rules_dir, e))?;
+            let canonical_rules = rules_dir
+                .canonicalize()
+                .map_err(|e| AdapterError::io(&rules_dir, e))?;
             for rule in &config.rules {
+                // Reject paths with `..` components to prevent directory escape
+                if rule
+                    .path
+                    .components()
+                    .any(|c| matches!(c, std::path::Component::ParentDir))
+                {
+                    return Err(AdapterError::Other(format!(
+                        "Rule path contains '..': {}",
+                        rule.path.display()
+                    )));
+                }
                 let rule_path = rules_dir.join(&rule.path);
+                // Double-check: after join, the resolved path must stay under rules_dir
                 if let Some(parent) = rule_path.parent() {
                     std::fs::create_dir_all(parent).map_err(|e| AdapterError::io(parent, e))?;
+                }
+                let canonical_rule = rule_path
+                    .parent()
+                    .and_then(|p| p.canonicalize().ok())
+                    .map(|p| p.join(rule_path.file_name().unwrap_or_default()));
+                if let Some(ref cr) = canonical_rule
+                    && !cr.starts_with(&canonical_rules)
+                {
+                    return Err(AdapterError::Other(format!(
+                        "Rule path escapes rules directory: {}",
+                        rule.path.display()
+                    )));
                 }
                 std::fs::write(&rule_path, &rule.content)
                     .map_err(|e| AdapterError::io(&rule_path, e))?;
@@ -181,6 +208,11 @@ fn parse_mcp_servers(
             .and_then(|v| v.as_str())
             .unwrap_or_default()
             .to_string();
+        // Skip servers with empty command — they'll fail at runtime
+        if command.is_empty() {
+            tracing::warn!(server = %name, "MCP server has empty command, skipping");
+            continue;
+        }
         let args = val
             .get("args")
             .and_then(|v| v.as_array())
@@ -206,14 +238,28 @@ fn parse_mcp_servers(
 
 fn read_rules_dir(rules_dir: &Path) -> Result<Vec<RuleFile>, AdapterError> {
     let mut rules = Vec::new();
+    let canonical_base = rules_dir
+        .canonicalize()
+        .map_err(|e| AdapterError::io(rules_dir, e))?;
     let entries = std::fs::read_dir(rules_dir).map_err(|e| AdapterError::io(rules_dir, e))?;
     for entry in entries {
         let entry = entry.map_err(|e| AdapterError::io(rules_dir, e))?;
         let path = entry.path();
-        if path.is_file() {
-            let content = std::fs::read_to_string(&path).map_err(|e| AdapterError::io(&path, e))?;
-            let relative = path.strip_prefix(rules_dir).unwrap_or(&path).to_path_buf();
-            rules.push(RuleFile { path: relative, content });
+        // Resolve symlinks and verify the file stays within rules_dir (prevent path traversal)
+        if let Ok(canonical_path) = path.canonicalize() {
+            if !canonical_path.starts_with(&canonical_base) {
+                tracing::warn!(
+                    "Skipping rules file outside rules directory: {}",
+                    path.display()
+                );
+                continue;
+            }
+            if canonical_path.is_file() {
+                let content = std::fs::read_to_string(&canonical_path)
+                    .map_err(|e| AdapterError::io(&path, e))?;
+                let relative = path.strip_prefix(rules_dir).unwrap_or(&path).to_path_buf();
+                rules.push(RuleFile { path: relative, content });
+            }
         }
     }
     // Sort for deterministic ordering.

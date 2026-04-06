@@ -30,19 +30,25 @@ impl ForgeGrpcClient {
     ///
     /// Channels are cheap to clone and can be shared across multiple clients.
     /// The channel is created on first call and cached for subsequent calls.
+    ///
+    /// # Panics
+    /// Panics if the server URL (already validated as a `Url`) cannot be parsed
+    /// by tonic, or if TLS configuration fails. Both conditions indicate a
+    /// programming error rather than a runtime issue.
     pub fn channel(&self) -> Channel {
         self.channel
             .get_or_init(|| {
-                let mut channel = Channel::from_shared(self.server_url.to_string())
-                    .expect("Invalid server URL")
+                let url_str = self.server_url.to_string();
+                let mut channel = Channel::from_shared(url_str.clone())
+                    .unwrap_or_else(|e| panic!("gRPC: invalid server URL '{}': {}", url_str, e))
                     .concurrency_limit(256);
 
                 // Enable TLS for https URLs (webpki-roots is faster than native-roots)
                 if self.server_url.scheme().contains("https") {
                     let tls_config = tonic::transport::ClientTlsConfig::new().with_webpki_roots();
-                    channel = channel
-                        .tls_config(tls_config)
-                        .expect("Failed to configure TLS");
+                    channel = channel.tls_config(tls_config).unwrap_or_else(|e| {
+                        panic!("gRPC: failed to configure TLS for '{}': {}", url_str, e)
+                    });
                 }
 
                 channel.connect_lazy()

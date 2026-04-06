@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
     AgentProviderSettings, ForgeConfig, MemorySettings, PermissionSettings, RulesSettings,
@@ -43,17 +43,20 @@ impl ConfigManager {
     pub fn get(&self) -> Arc<ForgeConfig> {
         self.cache
             .read()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(|poisoned| {
+                warn!("ConfigManager RwLock was poisoned during read — recovering with stale data");
+                poisoned.into_inner()
+            })
             .clone()
     }
 
     /// Reloads configuration from all layers, replacing the cache.
     pub fn reload(&self) -> crate::Result<()> {
         let config = Self::load(&self.cwd)?;
-        let mut guard = self
-            .cache
-            .write()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = self.cache.write().unwrap_or_else(|poisoned| {
+            warn!("ConfigManager RwLock was poisoned during write — recovering");
+            poisoned.into_inner()
+        });
         *guard = Arc::new(config);
         debug!("ConfigManager reloaded");
         Ok(())

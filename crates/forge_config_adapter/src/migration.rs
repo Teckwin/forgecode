@@ -144,6 +144,16 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), AdapterError> {
         let entry = entry.map_err(|e| AdapterError::io(src, e))?;
         let src_path = entry.path();
         let dest_path = dest.join(entry.file_name());
+
+        // Skip symlinks to prevent symlink-following attacks
+        if src_path.is_symlink() {
+            tracing::warn!(
+                "Skipping symlink during migration copy: {}",
+                src_path.display()
+            );
+            continue;
+        }
+
         if src_path.is_dir() {
             copy_dir_recursive(&src_path, &dest_path)?;
         } else {
