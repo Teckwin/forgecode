@@ -932,13 +932,30 @@ impl ToolCatalog {
                 cwd,
                 message: format!("Fetch content from URL: {}", input.url),
             }),
-            // Operations that don't require permission checks
-            ToolCatalog::SemSearch(_)
-            | ToolCatalog::Undo(_)
-            | ToolCatalog::Followup(_)
-            | ToolCatalog::Plan(_)
+            // Tools with side effects that require permission checks
+            ToolCatalog::SemSearch(_) => Some(crate::policies::PermissionOperation::Read {
+                path: std::path::PathBuf::from("."),
+                cwd,
+                message: "Semantic search across workspace".to_string(),
+            }),
+            ToolCatalog::Undo(input) => Some(crate::policies::PermissionOperation::Write {
+                path: std::path::PathBuf::from(&input.path),
+                cwd: cwd.clone(),
+                message: format!("Undo changes to: {}", display_path_for(&input.path)),
+            }),
+            ToolCatalog::Plan(input) => Some(crate::policies::PermissionOperation::Write {
+                path: std::path::PathBuf::from(&input.plan_name),
+                cwd: cwd.clone(),
+                message: format!("Create plan file: {}", input.plan_name),
+            }),
+            ToolCatalog::TodoWrite(_) => Some(crate::policies::PermissionOperation::Write {
+                path: std::path::PathBuf::from(".forge/todos"),
+                cwd,
+                message: "Update todo list".to_string(),
+            }),
+            // No side effects — no permission checks needed
+            ToolCatalog::Followup(_)
             | ToolCatalog::Skill(_)
-            | ToolCatalog::TodoWrite(_)
             | ToolCatalog::TodoRead(_) => None,
         }
     }
@@ -1844,5 +1861,74 @@ mod tests {
             "Should parse whitespace-padded 'patch' tool name"
         );
         assert!(matches!(actual.unwrap(), ToolCatalog::Patch(_)));
+    }
+
+    #[test]
+    fn test_to_policy_operation_sem_search_returns_read() {
+        let tool = ToolCatalog::SemSearch(super::SemanticSearch::default());
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_some());
+        assert!(matches!(
+            op.unwrap(),
+            crate::policies::PermissionOperation::Read { .. }
+        ));
+    }
+
+    #[test]
+    fn test_to_policy_operation_undo_returns_write() {
+        let tool = ToolCatalog::Undo(super::FSUndo { path: "/project/file.rs".to_string() });
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_some());
+        assert!(matches!(
+            op.unwrap(),
+            crate::policies::PermissionOperation::Write { .. }
+        ));
+    }
+
+    #[test]
+    fn test_to_policy_operation_plan_returns_write() {
+        let tool = ToolCatalog::Plan(super::PlanCreate {
+            plan_name: "test-plan".to_string(),
+            version: "v1".to_string(),
+            content: "plan content".to_string(),
+        });
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_some());
+        assert!(matches!(
+            op.unwrap(),
+            crate::policies::PermissionOperation::Write { .. }
+        ));
+    }
+
+    #[test]
+    fn test_to_policy_operation_todo_write_returns_write() {
+        let tool = ToolCatalog::TodoWrite(super::TodoWrite { todos: vec![] });
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_some());
+        assert!(matches!(
+            op.unwrap(),
+            crate::policies::PermissionOperation::Write { .. }
+        ));
+    }
+
+    #[test]
+    fn test_to_policy_operation_followup_returns_none() {
+        let tool = ToolCatalog::Followup(super::Followup::default());
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_none());
+    }
+
+    #[test]
+    fn test_to_policy_operation_skill_returns_none() {
+        let tool = ToolCatalog::Skill(super::SkillFetch::default());
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_none());
+    }
+
+    #[test]
+    fn test_to_policy_operation_todo_read_returns_none() {
+        let tool = ToolCatalog::TodoRead(super::TodoRead {});
+        let op = tool.to_policy_operation(PathBuf::from("/project"));
+        assert!(op.is_none());
     }
 }
