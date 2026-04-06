@@ -19,7 +19,7 @@ name: Multi Channel Release
 'on':
   release:
     types:
-    - published
+    - created
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -113,5 +113,18 @@ jobs:
       run: cp ${{ matrix.binary_path }} ${{ matrix.binary_name }}
     - name: Upload to Release
       run: gh release upload ${{ github.event.release.tag_name }} ${{ matrix.binary_name }} --clobber
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  publish_release:
+    needs:
+    - build_release
+    if: github.event.release.draft == true
+    name: publish-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Publish Release
+      run: gh release edit ${{ github.event.release.tag_name }} --draft=false --repo ${{ github.repository }}
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
