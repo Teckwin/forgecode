@@ -106,12 +106,12 @@ fn test_permission_settings_empty() {
     assert!(perms.deny.is_empty());
 }
 
-/// Sandbox defaults: enabled=false, allow_network=true.
+/// Sandbox defaults: enabled=true, allow_network=true.
 #[test]
 fn test_sandbox_settings_defaults() {
     let config = config_with_json_overlay(r#"{"sandbox": {}}"#);
     let sandbox = config.sandbox.unwrap();
-    assert!(!sandbox.enabled);
+    assert!(sandbox.enabled);
     assert!(sandbox.allow_network);
 }
 

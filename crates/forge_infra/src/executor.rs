@@ -288,7 +288,44 @@ impl CommandInfra for ForgeCommandExecutorService {
         working_dir: PathBuf,
         env_vars: Option<Vec<String>>,
     ) -> anyhow::Result<std::process::ExitStatus> {
-        let mut prepared_command = self.prepare_command(command, &working_dir, env_vars);
+        // Apply sandbox wrapping (same logic as execute_command_internal)
+        let effective_command = if let Some(ref sandbox) = self.sandbox {
+            if sandbox.is_available() {
+                match sandbox.wrap_command(command, &working_dir) {
+                    Ok(wrapped) => {
+                        tracing::debug!(original = %command, wrapped = %wrapped, "Sandboxed raw command");
+                        wrapped
+                    }
+                    Err(e) => match self.sandbox_fallback {
+                        SandboxFallback::Allow => {
+                            tracing::warn!(error = ?e, "Sandbox wrap failed for raw command, executing unsandboxed (fallback=allow)");
+                            command.to_string()
+                        }
+                        SandboxFallback::Deny => {
+                            return Err(anyhow::anyhow!(
+                                "Raw command blocked: sandbox wrapping failed and sandbox_fallback is 'deny'. Error: {e}"
+                            ));
+                        }
+                    },
+                }
+            } else {
+                match self.sandbox_fallback {
+                    SandboxFallback::Allow => {
+                        tracing::debug!("Sandbox not available for raw command, executing unsandboxed (fallback=allow)");
+                        command.to_string()
+                    }
+                    SandboxFallback::Deny => {
+                        return Err(anyhow::anyhow!(
+                            "Raw command blocked: sandbox not available and sandbox_fallback is 'deny'"
+                        ));
+                    }
+                }
+            }
+        } else {
+            command.to_string()
+        };
+
+        let mut prepared_command = self.prepare_command(&effective_command, &working_dir, env_vars);
 
         // overwrite the stdin, stdout and stderr to inherit
         prepared_command

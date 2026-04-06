@@ -17,10 +17,10 @@ pub enum SandboxFallback {
 }
 
 /// Settings for OS-level sandbox enforcement on tool execution.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema, Dummy)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema, Dummy)]
 pub struct SandboxSettings {
-    /// Whether sandbox enforcement is enabled.
-    #[serde(default)]
+    /// Whether sandbox enforcement is enabled. Defaults to `true`.
+    #[serde(default = "default_true")]
     pub enabled: bool,
 
     /// Whether network access is allowed inside the sandbox.
@@ -43,6 +43,18 @@ pub struct SandboxSettings {
 
 fn default_true() -> bool {
     true
+}
+
+impl Default for SandboxSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            allow_network: true,
+            writable_paths: Vec::new(),
+            readonly_paths: Vec::new(),
+            sandbox_fallback: SandboxFallback::default(),
+        }
+    }
 }
 
 #[cfg(test)]

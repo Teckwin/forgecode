@@ -72,11 +72,16 @@ impl ForgeInfra {
         let grpc_client = Arc::new(ForgeGrpcClient::new(env.service_url.clone()));
         let output_printer = Arc::new(StdConsoleWriter::default());
 
-        // Build command executor with sandbox from config
+        // Build command executor with sandbox from config (defaults to enabled)
         let mut executor = ForgeCommandExecutorService::new(env.clone(), output_printer.clone());
-        if let Some(ref sandbox_settings) = config.sandbox {
+        {
             use forge_sandbox::config::SandboxFallback;
             use forge_sandbox::{SandboxConfig, create_sandbox};
+
+            let sandbox_settings = config
+                .sandbox
+                .clone()
+                .unwrap_or_default();
 
             let sandbox_config = SandboxConfig {
                 cwd: env.cwd.clone(),
