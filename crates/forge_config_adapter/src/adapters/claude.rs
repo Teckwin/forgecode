@@ -404,22 +404,24 @@ mod tests {
         use std::collections::HashMap;
 
         let tmp = TempDir::new().unwrap();
-        let mut config = NormalizedConfig::default();
-        config.model = Some("claude-sonnet-4-20250514".to_string());
-        config.provider = Some("anthropic".to_string());
-        config.custom_instructions = Some("Be helpful and concise.".to_string());
-        config.mcp_servers.insert(
-            "test-server".to_string(),
-            McpServerConfig {
-                command: "node".to_string(),
-                args: vec!["server.js".to_string()],
-                env: HashMap::new(),
-            },
-        );
-        config.rules.push(RuleFile {
-            path: std::path::PathBuf::from("safety.md"),
-            content: "No destructive operations.".to_string(),
-        });
+        let config = NormalizedConfig {
+            model: Some("claude-sonnet-4-20250514".to_string()),
+            provider: Some("anthropic".to_string()),
+            custom_instructions: Some("Be helpful and concise.".to_string()),
+            mcp_servers: HashMap::from([(
+                "test-server".to_string(),
+                McpServerConfig {
+                    command: "node".to_string(),
+                    args: vec!["server.js".to_string()],
+                    env: HashMap::new(),
+                },
+            )]),
+            rules: vec![RuleFile {
+                path: std::path::PathBuf::from("safety.md"),
+                content: "No destructive operations.".to_string(),
+            }],
+            ..Default::default()
+        };
 
         ClaudeAdapter.write(tmp.path(), &config).unwrap();
 

@@ -119,31 +119,37 @@ mod tests {
 
     #[test]
     fn serialize_deserialize_round_trip_preserves_all_fields() {
-        let mut config = NormalizedConfig::default();
-        config.model = Some("claude-sonnet-4-20250514".to_string());
-        config.provider = Some("anthropic".to_string());
-        config.custom_instructions = Some("Be helpful.".to_string());
-        config.permissions.allowed_read_paths = vec!["/tmp".to_string()];
-        config.permissions.allowed_commands = vec!["git".to_string()];
-        config.permissions.denied_commands = vec!["rm".to_string()];
-        config.rules.push(RuleFile {
-            path: PathBuf::from("safety.md"),
-            content: "Do not delete files.".to_string(),
-        });
-
-        let mut agent = AgentProviderConfig::default();
-        agent.model = Some("gpt-4".to_string());
-        agent.provider = Some("openai".to_string());
-        config.agents.insert("coder".to_string(), agent);
-
-        config.mcp_servers.insert(
-            "my-server".to_string(),
-            McpServerConfig {
-                command: "npx".to_string(),
-                args: vec!["server".to_string()],
-                env: HashMap::from([("KEY".to_string(), "val".to_string())]),
+        let config = NormalizedConfig {
+            model: Some("claude-sonnet-4-20250514".to_string()),
+            provider: Some("anthropic".to_string()),
+            custom_instructions: Some("Be helpful.".to_string()),
+            permissions: NormalizedPermissions {
+                allowed_read_paths: vec!["/tmp".to_string()],
+                allowed_commands: vec!["git".to_string()],
+                denied_commands: vec!["rm".to_string()],
+                ..Default::default()
             },
-        );
+            rules: vec![RuleFile {
+                path: PathBuf::from("safety.md"),
+                content: "Do not delete files.".to_string(),
+            }],
+            agents: HashMap::from([(
+                "coder".to_string(),
+                AgentProviderConfig {
+                    model: Some("gpt-4".to_string()),
+                    provider: Some("openai".to_string()),
+                    ..Default::default()
+                },
+            )]),
+            mcp_servers: HashMap::from([(
+                "my-server".to_string(),
+                McpServerConfig {
+                    command: "npx".to_string(),
+                    args: vec!["server".to_string()],
+                    env: HashMap::from([("KEY".to_string(), "val".to_string())]),
+                },
+            )]),
+        };
 
         let json = serde_json::to_string(&config).expect("serialize");
         let deserialized: NormalizedConfig = serde_json::from_str(&json).expect("deserialize");

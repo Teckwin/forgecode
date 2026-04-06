@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn test_plan_migration_creates_actions() {
         use crate::adapters::ClaudeAdapter;
-        use crate::normalized::{McpServerConfig, NormalizedConfig};
+        use crate::normalized::{McpServerConfig, NormalizedConfig, NormalizedPermissions};
         use std::collections::HashMap;
 
         // Set up a temp dir with forge legacy config files
@@ -308,19 +308,24 @@ mod tests {
             }
         }
 
-        let mut config = NormalizedConfig::default();
-        config.model = Some("claude-sonnet-4-20250514".to_string());
-        config.provider = Some("anthropic".to_string());
-        config.custom_instructions = Some("Be helpful.".to_string());
-        config.mcp_servers.insert(
-            "ctx7".to_string(),
-            McpServerConfig {
-                command: "npx".to_string(),
-                args: vec!["-y".to_string(), "@context7/mcp".to_string()],
-                env: HashMap::new(),
+        let config = NormalizedConfig {
+            model: Some("claude-sonnet-4-20250514".to_string()),
+            provider: Some("anthropic".to_string()),
+            custom_instructions: Some("Be helpful.".to_string()),
+            mcp_servers: HashMap::from([(
+                "ctx7".to_string(),
+                McpServerConfig {
+                    command: "npx".to_string(),
+                    args: vec!["-y".to_string(), "@context7/mcp".to_string()],
+                    env: HashMap::new(),
+                },
+            )]),
+            permissions: NormalizedPermissions {
+                allowed_commands: vec!["git".to_string()],
+                ..Default::default()
             },
-        );
-        config.permissions.allowed_commands = vec!["git".to_string()];
+            ..Default::default()
+        };
 
         let source = StubSource(config);
         let dest = ClaudeAdapter;
@@ -418,10 +423,11 @@ mod tests {
                 &self,
                 _project_dir: &Path,
             ) -> Result<NormalizedConfig, crate::error::AdapterError> {
-                let mut config = NormalizedConfig::default();
-                config.model = Some("gpt-4".to_string());
-                config.custom_instructions = Some("Be helpful.".to_string());
-                Ok(config)
+                Ok(NormalizedConfig {
+                    model: Some("gpt-4".to_string()),
+                    custom_instructions: Some("Be helpful.".to_string()),
+                    ..Default::default()
+                })
             }
             fn write(
                 &self,
@@ -492,18 +498,19 @@ mod tests {
                 &self,
                 _project_dir: &Path,
             ) -> Result<NormalizedConfig, crate::error::AdapterError> {
-                let mut config = NormalizedConfig::default();
-                config.rules = vec![
-                    RuleFile {
-                        path: std::path::PathBuf::from("safety.md"),
-                        content: "No deletions.".to_string(),
-                    },
-                    RuleFile {
-                        path: std::path::PathBuf::from("style.md"),
-                        content: "Use idiomatic Rust.".to_string(),
-                    },
-                ];
-                Ok(config)
+                Ok(NormalizedConfig {
+                    rules: vec![
+                        RuleFile {
+                            path: std::path::PathBuf::from("safety.md"),
+                            content: "No deletions.".to_string(),
+                        },
+                        RuleFile {
+                            path: std::path::PathBuf::from("style.md"),
+                            content: "Use idiomatic Rust.".to_string(),
+                        },
+                    ],
+                    ..Default::default()
+                })
             }
             fn write(
                 &self,

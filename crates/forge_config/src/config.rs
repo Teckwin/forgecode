@@ -192,6 +192,32 @@ pub struct AgentParameterSettings {
     pub max_tokens: Option<u32>,
 }
 
+impl ForgeConfig {
+    pub fn read() -> crate::Result<ForgeConfig> {
+        ConfigReader::default()
+            .read_defaults()
+            .read_legacy()
+            .read_global()
+            .read_env()
+            .build()
+    }
+
+    pub fn read_with_cwd(cwd: &std::path::Path) -> crate::Result<ForgeConfig> {
+        ConfigReader::default()
+            .read_defaults()
+            .read_legacy()
+            .read_global()
+            .read_project(cwd)
+            .read_env()
+            .build()
+    }
+
+    pub fn write(&self) -> crate::Result<()> {
+        let path = ConfigReader::config_path();
+        ConfigWriter::new(self.clone()).write(&path)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -232,48 +258,5 @@ mod tests {
         let actual = ConfigReader::default().read_toml(&toml).build().unwrap();
 
         assert_eq!(actual.temperature, fixture.temperature);
-    }
-}
-
-impl ForgeConfig {
-    /// Reads and merges configuration from all sources, returning the resolved
-    /// [`ForgeConfig`].
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the config path cannot be resolved, the file cannot
-    /// be read, or deserialization fails.
-    pub fn read() -> crate::Result<ForgeConfig> {
-        ConfigReader::default()
-            .read_defaults()
-            .read_legacy()
-            .read_global()
-            .read_env()
-            .build()
-    }
-
-    /// Reads and merges configuration including project-level settings.
-    ///
-    /// Same as [`read()`] but also merges `<cwd>/.forge/settings.json` and
-    /// `<cwd>/.forge/settings.local.json` (project-level overrides).
-    pub fn read_with_cwd(cwd: &std::path::Path) -> crate::Result<ForgeConfig> {
-        ConfigReader::default()
-            .read_defaults()
-            .read_legacy()
-            .read_global()
-            .read_project(cwd)
-            .read_env()
-            .build()
-    }
-
-    /// Writes the configuration to the user config file.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the configuration cannot be serialized or written to
-    /// disk.
-    pub fn write(&self) -> crate::Result<()> {
-        let path = ConfigReader::config_path();
-        ConfigWriter::new(self.clone()).write(&path)
     }
 }

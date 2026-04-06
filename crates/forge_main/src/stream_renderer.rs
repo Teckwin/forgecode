@@ -91,11 +91,10 @@ impl<P: ConsoleWriter> SharedSpinner<P> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
+
     use std::sync::Arc;
     use std::time::Duration;
 
-    use pretty_assertions::assert_eq;
     use tokio::time::timeout;
 
     use forge_spinner::SpinnerManager;

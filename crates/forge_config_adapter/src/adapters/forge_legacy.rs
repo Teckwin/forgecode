@@ -384,7 +384,7 @@ provider = "anthropic"
         // detect ignores project_dir, so even with a temp dir it should not panic
         let result = ForgeLegacyAdapter.detect(tmp.path());
         // We can't assert true/false since it depends on the host, but it must be a bool
-        assert!(result || !result);
+        let _ = result;
     }
 
     #[test]
