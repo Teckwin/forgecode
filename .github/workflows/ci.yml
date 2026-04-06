@@ -200,9 +200,11 @@ jobs:
     - name: Copy Binary
       run: cp ${{ matrix.binary_path }} ${{ matrix.binary_name }}
     - name: Upload to Release
-      run: gh release upload ${{ github.event.release.tag_name }} ${{ matrix.binary_name }} --clobber
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: xresloader/upload-to-github-release@v1
+      with:
+        release_id: ${{ needs.draft_release.outputs.crate_release_id }}
+        file: ${{ matrix.binary_name }}
+        overwrite: 'true'
   build_release_pr:
     needs:
     - draft_release_pr
