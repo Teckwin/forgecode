@@ -262,4 +262,132 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&file1).unwrap(), "one");
         assert_eq!(std::fs::read_to_string(&file2).unwrap(), "two");
     }
+
+    #[test]
+    fn test_plan_migration_creates_actions() {
+        use crate::adapters::ClaudeAdapter;
+        use crate::normalized::{McpServerConfig, NormalizedConfig};
+        use std::collections::HashMap;
+
+        // Set up a temp dir with forge legacy config files
+        let tmp = TempDir::new().unwrap();
+        let home = tmp.path();
+
+        // We can't easily mock the home dir for ForgeLegacyAdapter, so instead
+        // build a stub source adapter that returns a known NormalizedConfig.
+        struct StubSource(NormalizedConfig);
+        impl crate::ConfigAdapter for StubSource {
+            fn tool_name(&self) -> &str {
+                "stub"
+            }
+            fn detect(&self, _project_dir: &Path) -> bool {
+                true
+            }
+            fn read(
+                &self,
+                _project_dir: &Path,
+            ) -> Result<NormalizedConfig, crate::error::AdapterError> {
+                Ok(self.0.clone())
+            }
+            fn write(
+                &self,
+                _project_dir: &Path,
+                _config: &NormalizedConfig,
+            ) -> Result<(), crate::error::AdapterError> {
+                Ok(())
+            }
+        }
+
+        let mut config = NormalizedConfig::default();
+        config.model = Some("claude-sonnet-4-20250514".to_string());
+        config.provider = Some("anthropic".to_string());
+        config.custom_instructions = Some("Be helpful.".to_string());
+        config.mcp_servers.insert(
+            "ctx7".to_string(),
+            McpServerConfig {
+                command: "npx".to_string(),
+                args: vec!["-y".to_string(), "@context7/mcp".to_string()],
+                env: HashMap::new(),
+            },
+        );
+        config.permissions.allowed_commands = vec!["git".to_string()];
+
+        let source = StubSource(config);
+        let dest = ClaudeAdapter;
+
+        let plan = plan_migration(&source, &dest, home).unwrap();
+
+        assert!(!plan.actions.is_empty());
+        assert_eq!(plan.source_tool, "stub");
+        assert_eq!(plan.dest_tool, "claude");
+
+        // Should have at least: settings.json, CLAUDE.md, .mcp.json
+        let paths: Vec<String> = plan
+            .actions
+            .iter()
+            .filter_map(|a| match a {
+                MigrationAction::CreateFile { path, .. } => {
+                    Some(path.file_name().unwrap().to_string_lossy().to_string())
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(paths.contains(&"settings.json".to_string()));
+        assert!(paths.contains(&"CLAUDE.md".to_string()));
+        assert!(paths.contains(&".mcp.json".to_string()));
+    }
+
+    #[test]
+    fn test_plan_migration_empty_config() {
+        use crate::adapters::ClaudeAdapter;
+        use crate::normalized::NormalizedConfig;
+
+        struct StubSource;
+        impl crate::ConfigAdapter for StubSource {
+            fn tool_name(&self) -> &str {
+                "stub"
+            }
+            fn detect(&self, _project_dir: &Path) -> bool {
+                true
+            }
+            fn read(
+                &self,
+                _project_dir: &Path,
+            ) -> Result<NormalizedConfig, crate::error::AdapterError> {
+                Ok(NormalizedConfig::default())
+            }
+            fn write(
+                &self,
+                _project_dir: &Path,
+                _config: &NormalizedConfig,
+            ) -> Result<(), crate::error::AdapterError> {
+                Ok(())
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let plan = plan_migration(&StubSource, &ClaudeAdapter, tmp.path()).unwrap();
+
+        // Even an empty config should create settings.json
+        assert!(!plan.actions.is_empty());
+        let has_settings = plan.actions.iter().any(|a| match a {
+            MigrationAction::CreateFile { path, .. } => {
+                path.file_name().unwrap().to_string_lossy() == "settings.json"
+            }
+            _ => false,
+        });
+        assert!(has_settings, "Expected settings.json in migration actions");
+
+        // No CLAUDE.md since no custom_instructions
+        let has_claude_md = plan.actions.iter().any(|a| match a {
+            MigrationAction::CreateFile { path, .. } => {
+                path.file_name().unwrap().to_string_lossy() == "CLAUDE.md"
+            }
+            _ => false,
+        });
+        assert!(
+            !has_claude_md,
+            "Should not create CLAUDE.md for empty config"
+        );
+    }
 }

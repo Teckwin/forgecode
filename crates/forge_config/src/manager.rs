@@ -220,4 +220,22 @@ mod tests {
             h.join().expect("Thread panicked during concurrent read");
         }
     }
+
+    #[test]
+    fn test_config_manager_rules_settings_default() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        let rules = manager.rules_settings();
+        // Rust Default for bool is false; serde default_true only applies during deserialization.
+        // When config.rules is None, unwrap_or_default() uses Rust Default.
+        assert!(!rules.auto_load);
+        assert_eq!(rules.enforce_mode, crate::EnforceMode::Normal); // #[default] Normal
+    }
+
+    #[test]
+    fn test_config_manager_memory_settings_default() {
+        let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
+        let memory = manager.memory_settings();
+        // Rust Default for bool is false; serde default_true only applies during deserialization.
+        assert!(!memory.auto_memory_enabled);
+    }
 }

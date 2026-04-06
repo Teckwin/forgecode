@@ -348,4 +348,58 @@ mod tests {
         assert!(config.custom_instructions.is_none());
         assert!(config.rules.is_empty());
     }
+
+    #[test]
+    fn test_write_creates_files() {
+        use crate::normalized::{McpServerConfig, NormalizedConfig, RuleFile};
+        use std::collections::HashMap;
+
+        let tmp = TempDir::new().unwrap();
+        let mut config = NormalizedConfig::default();
+        config.model = Some("claude-sonnet-4-20250514".to_string());
+        config.provider = Some("anthropic".to_string());
+        config.custom_instructions = Some("Be helpful and concise.".to_string());
+        config.mcp_servers.insert(
+            "test-server".to_string(),
+            McpServerConfig {
+                command: "node".to_string(),
+                args: vec!["server.js".to_string()],
+                env: HashMap::new(),
+            },
+        );
+        config.rules.push(RuleFile {
+            path: std::path::PathBuf::from("safety.md"),
+            content: "No destructive operations.".to_string(),
+        });
+
+        ClaudeAdapter.write(tmp.path(), &config).unwrap();
+
+        // settings.json should exist
+        let settings_path = tmp.path().join(".claude").join("settings.json");
+        assert!(settings_path.is_file(), "settings.json should be created");
+        let settings_content = std::fs::read_to_string(&settings_path).unwrap();
+        let settings: serde_json::Value = serde_json::from_str(&settings_content).unwrap();
+        assert_eq!(settings["model"], "claude-sonnet-4-20250514");
+        assert_eq!(settings["provider"], "anthropic");
+
+        // CLAUDE.md should exist
+        let claude_md = tmp.path().join("CLAUDE.md");
+        assert!(claude_md.is_file(), "CLAUDE.md should be created");
+        assert_eq!(
+            std::fs::read_to_string(&claude_md).unwrap(),
+            "Be helpful and concise."
+        );
+
+        // .mcp.json should exist
+        let mcp_path = tmp.path().join(".claude").join(".mcp.json");
+        assert!(mcp_path.is_file(), ".mcp.json should be created");
+
+        // rules file should exist
+        let rule_path = tmp.path().join(".claude").join("rules").join("safety.md");
+        assert!(rule_path.is_file(), "rules/safety.md should be created");
+        assert_eq!(
+            std::fs::read_to_string(&rule_path).unwrap(),
+            "No destructive operations."
+        );
+    }
 }
