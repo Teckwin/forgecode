@@ -33,9 +33,7 @@ impl LinuxSandbox {
         args.push("/proc".to_string());
 
         // Read-only bind mounts for system paths
-        let system_paths = [
-            "/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc",
-        ];
+        let system_paths = ["/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc"];
         for path in &system_paths {
             if Path::new(path).exists() {
                 args.push("--ro-bind".to_string());
@@ -176,10 +174,7 @@ mod tests {
     #[test]
     fn readonly_paths_get_ro_bind_flags() {
         let mut config = make_config();
-        config.readonly_paths = vec![
-            PathBuf::from("/data/shared"),
-            PathBuf::from("/opt/tools"),
-        ];
+        config.readonly_paths = vec![PathBuf::from("/data/shared"), PathBuf::from("/opt/tools")];
         let sandbox = LinuxSandbox::new(config);
         let args = sandbox.build_bwrap_args("ls", Path::new("/project"));
 

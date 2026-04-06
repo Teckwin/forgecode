@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::error::AdapterError;
 use crate::ConfigAdapter;
+use crate::error::AdapterError;
 
 /// A single action in a migration plan.
 #[derive(Debug, Clone)]
@@ -116,16 +116,14 @@ pub fn execute_migration(plan: &MigrationPlan) -> Result<(), AdapterError> {
         match action {
             MigrationAction::CreateFile { path, content } => {
                 if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| AdapterError::io(parent, e))?;
+                    std::fs::create_dir_all(parent).map_err(|e| AdapterError::io(parent, e))?;
                 }
                 std::fs::write(path, content).map_err(|e| AdapterError::io(path, e))?;
                 tracing::info!("Created {}", path.display());
             }
             MigrationAction::CopyFile { src, dest } => {
                 if let Some(parent) = dest.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| AdapterError::io(parent, e))?;
+                    std::fs::create_dir_all(parent).map_err(|e| AdapterError::io(parent, e))?;
                 }
                 std::fs::copy(src, dest).map_err(|e| AdapterError::io(src, e))?;
                 tracing::info!("Copied {} -> {}", src.display(), dest.display());
@@ -149,8 +147,7 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), AdapterError> {
         if src_path.is_dir() {
             copy_dir_recursive(&src_path, &dest_path)?;
         } else {
-            std::fs::copy(&src_path, &dest_path)
-                .map_err(|e| AdapterError::io(&src_path, e))?;
+            std::fs::copy(&src_path, &dest_path).map_err(|e| AdapterError::io(&src_path, e))?;
         }
     }
     Ok(())
@@ -192,10 +189,7 @@ mod tests {
             description: "test".to_string(),
             source_tool: "a".to_string(),
             dest_tool: "b".to_string(),
-            actions: vec![MigrationAction::CopyFile {
-                src: src.clone(),
-                dest: dest.clone(),
-            }],
+            actions: vec![MigrationAction::CopyFile { src: src.clone(), dest: dest.clone() }],
         };
 
         execute_migration(&plan).unwrap();
@@ -258,14 +252,8 @@ mod tests {
             source_tool: "a".to_string(),
             dest_tool: "b".to_string(),
             actions: vec![
-                MigrationAction::CreateFile {
-                    path: file1.clone(),
-                    content: "one".to_string(),
-                },
-                MigrationAction::CreateFile {
-                    path: file2.clone(),
-                    content: "two".to_string(),
-                },
+                MigrationAction::CreateFile { path: file1.clone(), content: "one".to_string() },
+                MigrationAction::CreateFile { path: file2.clone(), content: "two".to_string() },
             ],
         };
 

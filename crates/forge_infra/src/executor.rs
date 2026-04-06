@@ -35,7 +35,12 @@ impl std::fmt::Debug for ForgeCommandExecutorService {
 
 impl ForgeCommandExecutorService {
     pub fn new(env: Environment, output_printer: Arc<StdConsoleWriter>) -> Self {
-        Self { env, output_printer, ready: Arc::new(Mutex::new(())), sandbox: None }
+        Self {
+            env,
+            output_printer,
+            ready: Arc::new(Mutex::new(())),
+            sandbox: None,
+        }
     }
 
     /// Set the sandbox implementation for command execution.
@@ -139,8 +144,7 @@ impl ForgeCommandExecutorService {
             command.clone()
         };
 
-        let mut prepared_command =
-            self.prepare_command(&effective_command, working_dir, env_vars);
+        let mut prepared_command = self.prepare_command(&effective_command, working_dir, env_vars);
 
         // Spawn the command
         let mut child = prepared_command.spawn()?;

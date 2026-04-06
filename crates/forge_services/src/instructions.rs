@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use forge_app::{
@@ -73,7 +73,7 @@ impl<F: EnvironmentInfra + FileReaderInfra + CommandInfra + DirectoryReaderInfra
     }
 
     /// Load all *.md files from a rules/ directory.
-    async fn load_rules_dir(&self, dir: &PathBuf) -> Vec<String> {
+    async fn load_rules_dir(&self, dir: &Path) -> Vec<String> {
         let mut rules = Vec::new();
         match self.infra.read_directory_files(dir, Some("*.md")).await {
             Ok(files) => {

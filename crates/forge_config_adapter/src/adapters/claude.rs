@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::error::AdapterError;
-use crate::normalized::{
-    McpServerConfig, NormalizedConfig, NormalizedPermissions, RuleFile,
-};
+use crate::normalized::{McpServerConfig, NormalizedConfig, NormalizedPermissions, RuleFile};
 
 /// Adapter that reads Claude Code configuration from `.claude/` project directory.
 ///
@@ -54,8 +52,8 @@ impl crate::ConfigAdapter for ClaudeAdapter {
         // 2. Read CLAUDE.md for custom instructions
         let claude_md = project_dir.join("CLAUDE.md");
         if claude_md.is_file() {
-            let content = std::fs::read_to_string(&claude_md)
-                .map_err(|e| AdapterError::io(&claude_md, e))?;
+            let content =
+                std::fs::read_to_string(&claude_md).map_err(|e| AdapterError::io(&claude_md, e))?;
             config.custom_instructions = Some(content);
         }
 
@@ -66,18 +64,14 @@ impl crate::ConfigAdapter for ClaudeAdapter {
                 Some(inner)
             } else {
                 let outer = project_dir.join(".mcp.json");
-                if outer.is_file() {
-                    Some(outer)
-                } else {
-                    None
-                }
+                if outer.is_file() { Some(outer) } else { None }
             }
         };
         if let Some(mcp_path) = mcp_path {
-            let content = std::fs::read_to_string(&mcp_path)
-                .map_err(|e| AdapterError::io(&mcp_path, e))?;
-            let parsed: serde_json::Value = serde_json::from_str(&content)
-                .map_err(|e| AdapterError::json(&mcp_path, e))?;
+            let content =
+                std::fs::read_to_string(&mcp_path).map_err(|e| AdapterError::io(&mcp_path, e))?;
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).map_err(|e| AdapterError::json(&mcp_path, e))?;
             if let Some(servers) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
                 config.mcp_servers = parse_mcp_servers(servers);
             }
@@ -94,8 +88,7 @@ impl crate::ConfigAdapter for ClaudeAdapter {
 
     fn write(&self, project_dir: &Path, config: &NormalizedConfig) -> Result<(), AdapterError> {
         let claude_dir = project_dir.join(".claude");
-        std::fs::create_dir_all(&claude_dir)
-            .map_err(|e| AdapterError::io(&claude_dir, e))?;
+        std::fs::create_dir_all(&claude_dir).map_err(|e| AdapterError::io(&claude_dir, e))?;
 
         // Write settings.json
         let settings_path = claude_dir.join("settings.json");
@@ -127,20 +120,17 @@ impl crate::ConfigAdapter for ClaudeAdapter {
             let mcp_obj = serde_json::json!({ "mcpServers": &config.mcp_servers });
             let mcp_json = serde_json::to_string_pretty(&mcp_obj)
                 .map_err(|e| AdapterError::json(&mcp_path, e))?;
-            std::fs::write(&mcp_path, mcp_json)
-                .map_err(|e| AdapterError::io(&mcp_path, e))?;
+            std::fs::write(&mcp_path, mcp_json).map_err(|e| AdapterError::io(&mcp_path, e))?;
         }
 
         // Write rules
         if !config.rules.is_empty() {
             let rules_dir = claude_dir.join("rules");
-            std::fs::create_dir_all(&rules_dir)
-                .map_err(|e| AdapterError::io(&rules_dir, e))?;
+            std::fs::create_dir_all(&rules_dir).map_err(|e| AdapterError::io(&rules_dir, e))?;
             for rule in &config.rules {
                 let rule_path = rules_dir.join(&rule.path);
                 if let Some(parent) = rule_path.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|e| AdapterError::io(parent, e))?;
+                    std::fs::create_dir_all(parent).map_err(|e| AdapterError::io(parent, e))?;
                 }
                 std::fs::write(&rule_path, &rule.content)
                     .map_err(|e| AdapterError::io(&rule_path, e))?;
@@ -209,14 +199,7 @@ fn parse_mcp_servers(
                     .collect()
             })
             .unwrap_or_default();
-        map.insert(
-            name.clone(),
-            McpServerConfig {
-                command,
-                args,
-                env,
-            },
-        );
+        map.insert(name.clone(), McpServerConfig { command, args, env });
     }
     map
 }
@@ -228,16 +211,9 @@ fn read_rules_dir(rules_dir: &Path) -> Result<Vec<RuleFile>, AdapterError> {
         let entry = entry.map_err(|e| AdapterError::io(rules_dir, e))?;
         let path = entry.path();
         if path.is_file() {
-            let content =
-                std::fs::read_to_string(&path).map_err(|e| AdapterError::io(&path, e))?;
-            let relative = path
-                .strip_prefix(rules_dir)
-                .unwrap_or(&path)
-                .to_path_buf();
-            rules.push(RuleFile {
-                path: relative,
-                content,
-            });
+            let content = std::fs::read_to_string(&path).map_err(|e| AdapterError::io(&path, e))?;
+            let relative = path.strip_prefix(rules_dir).unwrap_or(&path).to_path_buf();
+            rules.push(RuleFile { path: relative, content });
         }
     }
     // Sort for deterministic ordering.

@@ -148,7 +148,10 @@ mod tests {
         let json = serde_json::to_string(&config).expect("serialize");
         let deserialized: NormalizedConfig = serde_json::from_str(&json).expect("deserialize");
 
-        assert_eq!(deserialized.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(
+            deserialized.model.as_deref(),
+            Some("claude-sonnet-4-20250514")
+        );
         assert_eq!(deserialized.provider.as_deref(), Some("anthropic"));
         assert_eq!(
             deserialized.custom_instructions.as_deref(),
@@ -181,10 +184,12 @@ mod tests {
         };
 
         let json = serde_json::to_string(&agent).expect("serialize");
-        let deserialized: AgentProviderConfig =
-            serde_json::from_str(&json).expect("deserialize");
+        let deserialized: AgentProviderConfig = serde_json::from_str(&json).expect("deserialize");
 
-        assert_eq!(deserialized.model.as_deref(), Some("claude-opus-4-20250514"));
+        assert_eq!(
+            deserialized.model.as_deref(),
+            Some("claude-opus-4-20250514")
+        );
         assert_eq!(deserialized.provider.as_deref(), Some("anthropic"));
         assert_eq!(
             deserialized.api_key_env.as_deref(),

@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
-use tracing::{debug, error};
+use tracing::debug;
 
 use crate::{
     AgentProviderSettings, ForgeConfig, MemorySettings, PermissionSettings, RulesSettings,
@@ -34,10 +34,7 @@ impl ConfigManager {
     pub fn new(cwd: PathBuf) -> crate::Result<Self> {
         let config = Self::load(&cwd)?;
         debug!(config = ?config, "ConfigManager initialised");
-        Ok(Self {
-            cwd,
-            cache: Arc::new(RwLock::new(Arc::new(config))),
-        })
+        Ok(Self { cwd, cache: Arc::new(RwLock::new(Arc::new(config))) })
     }
 
     /// Returns the current cached configuration.
@@ -71,26 +68,17 @@ impl ConfigManager {
 
     /// Returns permission settings (empty defaults if not configured).
     pub fn permissions(&self) -> PermissionSettings {
-        self.get()
-            .permissions
-            .clone()
-            .unwrap_or_default()
+        self.get().permissions.clone().unwrap_or_default()
     }
 
     /// Returns MCP server definitions (empty map if not configured).
     pub fn mcp_servers(&self) -> std::collections::HashMap<String, serde_json::Value> {
-        self.get()
-            .mcp_servers
-            .clone()
-            .unwrap_or_default()
+        self.get().mcp_servers.clone().unwrap_or_default()
     }
 
     /// Returns sandbox settings (disabled by default).
     pub fn sandbox_settings(&self) -> SandboxSettings {
-        self.get()
-            .sandbox
-            .clone()
-            .unwrap_or_default()
+        self.get().sandbox.clone().unwrap_or_default()
     }
 
     /// Returns per-agent provider configuration, if any.
@@ -103,24 +91,18 @@ impl ConfigManager {
 
     /// Returns rules settings (auto_load=true, enforce_mode=normal by default).
     pub fn rules_settings(&self) -> RulesSettings {
-        self.get()
-            .rules
-            .clone()
-            .unwrap_or_default()
+        self.get().rules.clone().unwrap_or_default()
     }
 
     /// Returns memory settings (enabled by default).
     pub fn memory_settings(&self) -> MemorySettings {
-        self.get()
-            .memory
-            .clone()
-            .unwrap_or_default()
+        self.get().memory.clone().unwrap_or_default()
     }
 
     // --- Internal helpers ---
 
     /// Loads and merges configuration from all layers.
-    fn load(cwd: &Path) -> crate::Result<ForgeConfig> {
+    fn load(_cwd: &Path) -> crate::Result<ForgeConfig> {
         // For now, delegate to the existing ConfigReader.
         // TODO: Replace with JSON-only chain once reader is rewritten.
         crate::ConfigReader::default()
@@ -134,10 +116,7 @@ impl ConfigManager {
 
 impl Clone for ConfigManager {
     fn clone(&self) -> Self {
-        Self {
-            cwd: self.cwd.clone(),
-            cache: self.cache.clone(),
-        }
+        Self { cwd: self.cwd.clone(), cache: self.cache.clone() }
     }
 }
 

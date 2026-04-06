@@ -16,7 +16,7 @@ pub mod normalized;
 
 pub use adapters::{ClaudeAdapter, CursorAdapter, ForgeLegacyAdapter};
 pub use error::AdapterError;
-pub use migration::{execute_migration, plan_migration, MigrationAction, MigrationPlan};
+pub use migration::{MigrationAction, MigrationPlan, execute_migration, plan_migration};
 pub use normalized::{
     AgentProviderConfig, McpServerConfig, NormalizedConfig, NormalizedPermissions, RuleFile,
 };

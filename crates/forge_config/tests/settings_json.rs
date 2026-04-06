@@ -2,8 +2,8 @@
 //! rules, memory) — validates JSON round-trip and settings.json compatibility.
 
 use forge_config::{
-    AgentParameterSettings, AgentProviderSettings, ForgeConfig, MemorySettings,
-    PermissionSettings, RulesSettings, SandboxSettings,
+    AgentParameterSettings, AgentProviderSettings, ForgeConfig, MemorySettings, PermissionSettings,
+    RulesSettings, SandboxSettings,
 };
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
@@ -89,7 +89,10 @@ fn test_minimal_settings_json_parses() {
     );
     let session = config.session.unwrap();
     assert_eq!(session.provider_id.as_deref(), Some("anthropic"));
-    assert_eq!(session.model_id.as_deref(), Some("claude-sonnet-4-20250514"));
+    assert_eq!(
+        session.model_id.as_deref(),
+        Some("claude-sonnet-4-20250514")
+    );
     assert!(config.agents.is_none());
     assert!(config.permissions.is_none());
 }

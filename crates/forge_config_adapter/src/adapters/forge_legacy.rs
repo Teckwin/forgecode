@@ -54,18 +54,18 @@ impl crate::ConfigAdapter for ForgeLegacyAdapter {
         // 1. Parse .forge.toml
         let toml_path = config_dir.join(".forge.toml");
         if toml_path.is_file() {
-            let content = std::fs::read_to_string(&toml_path)
-                .map_err(|e| AdapterError::io(&toml_path, e))?;
+            let content =
+                std::fs::read_to_string(&toml_path).map_err(|e| AdapterError::io(&toml_path, e))?;
             parse_forge_toml(&content, &toml_path, &mut config)?;
         }
 
         // 2. Parse .mcp.json
         let mcp_path = config_dir.join(".mcp.json");
         if mcp_path.is_file() {
-            let content = std::fs::read_to_string(&mcp_path)
-                .map_err(|e| AdapterError::io(&mcp_path, e))?;
-            let parsed: serde_json::Value = serde_json::from_str(&content)
-                .map_err(|e| AdapterError::json(&mcp_path, e))?;
+            let content =
+                std::fs::read_to_string(&mcp_path).map_err(|e| AdapterError::io(&mcp_path, e))?;
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).map_err(|e| AdapterError::json(&mcp_path, e))?;
             if let Some(servers) = parsed.get("mcpServers").and_then(|v| v.as_object()) {
                 config.mcp_servers = parse_mcp_servers_json(servers);
             }
@@ -163,14 +163,7 @@ fn parse_mcp_servers_json(
                     .collect()
             })
             .unwrap_or_default();
-        map.insert(
-            name.clone(),
-            McpServerConfig {
-                command,
-                args,
-                env,
-            },
-        );
+        map.insert(name.clone(), McpServerConfig { command, args, env });
     }
     map
 }

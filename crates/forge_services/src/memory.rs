@@ -45,11 +45,7 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + DirectoryReaderIn
     }
 
     /// Write or update a memory file in the project memory directory.
-    pub async fn write_memory(
-        &self,
-        filename: &str,
-        content: &str,
-    ) -> anyhow::Result<PathBuf> {
+    pub async fn write_memory(&self, filename: &str, content: &str) -> anyhow::Result<PathBuf> {
         let env = self.infra.get_environment();
         let dir = env.memory_project_path();
 
@@ -71,14 +67,14 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + DirectoryReaderIn
 
         // Try MEMORY.md first (always loaded)
         let memory_md = dir.join("MEMORY.md");
-        if let Ok(content) = self.infra.read_utf8(&memory_md).await {
-            if !content.trim().is_empty() {
-                entries.push(MemoryEntry {
-                    scope: scope.to_string(),
-                    filename: "MEMORY.md".to_string(),
-                    content,
-                });
-            }
+        if let Ok(content) = self.infra.read_utf8(&memory_md).await
+            && !content.trim().is_empty()
+        {
+            entries.push(MemoryEntry {
+                scope: scope.to_string(),
+                filename: "MEMORY.md".to_string(),
+                content,
+            });
         }
 
         // Load remaining *.md files
@@ -97,11 +93,7 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + DirectoryReaderIn
                     }
 
                     if !content.trim().is_empty() {
-                        entries.push(MemoryEntry {
-                            scope: scope.to_string(),
-                            filename,
-                            content,
-                        });
+                        entries.push(MemoryEntry { scope: scope.to_string(), filename, content });
                     }
                 }
             }

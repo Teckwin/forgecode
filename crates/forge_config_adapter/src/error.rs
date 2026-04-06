@@ -33,31 +33,19 @@ pub enum AdapterError {
 
 impl AdapterError {
     pub fn io(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
-        Self::Io {
-            path: path.into(),
-            source,
-        }
+        Self::Io { path: path.into(), source }
     }
 
     pub fn json(path: impl Into<PathBuf>, source: serde_json::Error) -> Self {
-        Self::Json {
-            path: path.into(),
-            source,
-        }
+        Self::Json { path: path.into(), source }
     }
 
     pub fn toml(path: impl Into<PathBuf>, message: impl Into<String>) -> Self {
-        Self::Toml {
-            path: path.into(),
-            message: message.into(),
-        }
+        Self::Toml { path: path.into(), message: message.into() }
     }
 
     pub fn yaml(path: impl Into<PathBuf>, message: impl Into<String>) -> Self {
-        Self::Yaml {
-            path: path.into(),
-            message: message.into(),
-        }
+        Self::Yaml { path: path.into(), message: message.into() }
     }
 }
 
@@ -79,8 +67,7 @@ mod tests {
     #[test]
     fn json_error_display_contains_path() {
         // Create a real serde_json error by parsing invalid JSON
-        let json_err = serde_json::from_str::<serde_json::Value>("{{bad}}")
-            .unwrap_err();
+        let json_err = serde_json::from_str::<serde_json::Value>("{{bad}}").unwrap_err();
         let err = AdapterError::json("/config.json", json_err);
         let msg = err.to_string();
         assert!(msg.contains("/config.json"), "msg was: {msg}");
@@ -106,10 +93,7 @@ mod tests {
     fn unsupported_format_display() {
         let err = AdapterError::UnsupportedFormat("cursor not supported".into());
         let msg = err.to_string();
-        assert!(
-            msg.contains("cursor not supported"),
-            "msg was: {msg}"
-        );
+        assert!(msg.contains("cursor not supported"), "msg was: {msg}");
     }
 
     #[test]

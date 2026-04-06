@@ -39,8 +39,7 @@ impl ForgeGrpcClient {
 
                 // Enable TLS for https URLs (webpki-roots is faster than native-roots)
                 if self.server_url.scheme().contains("https") {
-                    let tls_config =
-                        tonic::transport::ClientTlsConfig::new().with_webpki_roots();
+                    let tls_config = tonic::transport::ClientTlsConfig::new().with_webpki_roots();
                     channel = channel
                         .tls_config(tls_config)
                         .expect("Failed to configure TLS");

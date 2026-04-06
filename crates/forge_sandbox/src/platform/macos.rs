@@ -45,10 +45,7 @@ impl MacOsSandbox {
         ];
 
         for path in &system_readonly {
-            profile.push_str(&format!(
-                "(allow file-read* (subpath \"{}\"))\n",
-                path
-            ));
+            profile.push_str(&format!("(allow file-read* (subpath \"{}\"))\n", path));
         }
 
         // Allow reading from configured readonly paths
@@ -146,10 +143,7 @@ mod tests {
     #[test]
     fn profile_includes_readonly_paths_as_read_only() {
         let mut config = make_config();
-        config.readonly_paths = vec![
-            PathBuf::from("/data/shared"),
-            PathBuf::from("/opt/tools"),
-        ];
+        config.readonly_paths = vec![PathBuf::from("/data/shared"), PathBuf::from("/opt/tools")];
         let sandbox = MacOsSandbox::new(config);
         let profile = sandbox.generate_profile(Path::new("/project"));
 
@@ -217,10 +211,7 @@ mod tests {
             result.starts_with("sandbox-exec -p '"),
             "should start with sandbox-exec -p"
         );
-        assert!(
-            result.contains("/bin/sh -c '"),
-            "should invoke /bin/sh -c"
-        );
+        assert!(result.contains("/bin/sh -c '"), "should invoke /bin/sh -c");
         assert!(
             result.contains("echo hello"),
             "should contain the original command"
