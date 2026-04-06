@@ -56,6 +56,9 @@ pub struct ForgeInfra {
 
 impl ForgeInfra {
     pub fn new(cwd: PathBuf) -> Self {
+        // Auto-migrate external tool configs (e.g. .claude/) to .forge/ if needed
+        forge_config_adapter::try_auto_migrate(&cwd);
+
         let config_infra = Arc::new(ForgeEnvironmentInfra::new(cwd));
         let env = config_infra.get_environment();
 

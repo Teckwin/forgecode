@@ -105,13 +105,20 @@ impl ConfigManager {
     // --- Internal helpers ---
 
     /// Loads and merges configuration from all layers.
-    fn load(_cwd: &Path) -> crate::Result<ForgeConfig> {
-        // For now, delegate to the existing ConfigReader.
-        // TODO: Replace with JSON-only chain once reader is rewritten.
+    ///
+    /// Merge order (later wins):
+    /// 1. Embedded defaults (`.forge.toml`)
+    /// 2. Legacy `~/.forge/.config.json`
+    /// 3. Global `~/.forge/.forge.toml`
+    /// 4. Project `<cwd>/.forge/settings.json`
+    /// 5. Personal `<cwd>/.forge/settings.local.json`
+    /// 6. `FORGE_*` environment variables
+    fn load(cwd: &Path) -> crate::Result<ForgeConfig> {
         crate::ConfigReader::default()
             .read_defaults()
             .read_legacy()
             .read_global()
+            .read_project(cwd)
             .read_env()
             .build()
     }

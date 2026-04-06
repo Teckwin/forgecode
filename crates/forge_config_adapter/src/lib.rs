@@ -57,6 +57,97 @@ pub fn detect_adapters(project_dir: &Path) -> Vec<Box<dyn ConfigAdapter>> {
         .collect()
 }
 
+/// Auto-detect and migrate external tool configs (e.g. `.claude/`) to forge format.
+///
+/// Called at startup. If `.forge/` already exists (forge config is present),
+/// this is a no-op. Otherwise, if a supported tool config is detected
+/// (e.g. `.claude/`), it auto-migrates to `.forge/` layout.
+///
+/// Returns `true` if a migration was performed.
+pub fn try_auto_migrate(project_dir: &Path) -> bool {
+    let forge_dir = project_dir.join(".forge");
+
+    // If .forge/ already exists, no migration needed
+    if forge_dir.is_dir() {
+        return false;
+    }
+
+    // Detect external tool configs (skip forge_legacy — that's for ~/forge → ~/.forge)
+    let adapters = detect_adapters(project_dir);
+    let source = adapters
+        .iter()
+        .find(|a| a.tool_name() != "forge_legacy" && a.tool_name() != "cursor");
+
+    let Some(source) = source else {
+        return false;
+    };
+
+    tracing::info!(
+        tool = source.tool_name(),
+        "Detected {} config — auto-migrating to .forge/",
+        source.tool_name()
+    );
+
+    // Create a "forge" destination adapter that writes to .forge/ layout
+    // For now, directly read the source and write key files
+    match source.read(project_dir) {
+        Ok(config) => {
+            // Create .forge/ directory
+            if let Err(e) = std::fs::create_dir_all(&forge_dir) {
+                tracing::warn!(error = ?e, "Failed to create .forge/ directory");
+                return false;
+            }
+
+            // Write settings.json if model/provider present
+            if config.model.is_some() || config.provider.is_some() {
+                let settings = serde_json::json!({
+                    "model": config.model,
+                    "provider": config.provider,
+                });
+                if let Ok(json) = serde_json::to_string_pretty(&settings) {
+                    let _ = std::fs::write(forge_dir.join("settings.json"), json);
+                }
+            }
+
+            // Write FORGE.md from custom instructions
+            if let Some(ref instructions) = config.custom_instructions {
+                let _ = std::fs::write(project_dir.join("FORGE.md"), instructions);
+            }
+
+            // Copy MCP servers
+            if !config.mcp_servers.is_empty() {
+                let mcp = serde_json::json!({ "mcpServers": &config.mcp_servers });
+                if let Ok(json) = serde_json::to_string_pretty(&mcp) {
+                    let _ = std::fs::write(forge_dir.join(".mcp.json"), json);
+                }
+            }
+
+            // Copy rules
+            if !config.rules.is_empty() {
+                let rules_dir = forge_dir.join("rules");
+                let _ = std::fs::create_dir_all(&rules_dir);
+                for rule in &config.rules {
+                    let _ = std::fs::write(rules_dir.join(&rule.path), &rule.content);
+                }
+            }
+
+            tracing::info!(
+                "Migrated {} config to .forge/ — review and commit as needed",
+                source.tool_name()
+            );
+            true
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = ?e,
+                "Failed to read {} config for migration",
+                source.tool_name()
+            );
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

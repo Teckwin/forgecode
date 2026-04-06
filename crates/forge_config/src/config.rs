@@ -252,6 +252,20 @@ impl ForgeConfig {
             .build()
     }
 
+    /// Reads and merges configuration including project-level settings.
+    ///
+    /// Same as [`read()`] but also merges `<cwd>/.forge/settings.json` and
+    /// `<cwd>/.forge/settings.local.json` (project-level overrides).
+    pub fn read_with_cwd(cwd: &std::path::Path) -> crate::Result<ForgeConfig> {
+        ConfigReader::default()
+            .read_defaults()
+            .read_legacy()
+            .read_global()
+            .read_project(cwd)
+            .read_env()
+            .build()
+    }
+
     /// Writes the configuration to the user config file.
     ///
     /// # Errors

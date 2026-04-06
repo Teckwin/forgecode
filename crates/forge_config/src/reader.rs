@@ -123,6 +123,23 @@ impl ConfigReader {
             self
         }
     }
+
+    /// Adds `<cwd>/.forge/settings.json` as a config source (project-level),
+    /// silently skipping if absent. Also reads `<cwd>/.forge/settings.local.json`
+    /// as a higher-priority personal override.
+    pub fn read_project(mut self, cwd: &std::path::Path) -> Self {
+        let project_settings = cwd.join(".forge").join("settings.json");
+        self.builder = self
+            .builder
+            .add_source(config::File::from(project_settings).required(false));
+
+        let local_settings = cwd.join(".forge").join("settings.local.json");
+        self.builder = self
+            .builder
+            .add_source(config::File::from(local_settings).required(false));
+
+        self
+    }
 }
 
 #[cfg(test)]

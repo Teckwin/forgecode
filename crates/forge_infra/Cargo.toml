@@ -29,6 +29,7 @@ thiserror.workspace = true
 schemars.workspace = true
 forge_app.workspace = true
 forge_sandbox.workspace = true
+forge_config_adapter.workspace = true
 forge_walker.workspace = true
 
 

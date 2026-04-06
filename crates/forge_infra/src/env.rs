@@ -374,15 +374,14 @@ impl ForgeEnvironmentInfra {
         Self { cwd, cache: Arc::new(std::sync::Mutex::new(None)) }
     }
 
-    /// Reads [`ForgeConfig`] from disk via [`ForgeConfig::read`].
-    fn read_from_disk() -> ForgeConfig {
-        match ForgeConfig::read() {
+    /// Reads [`ForgeConfig`] from disk, including project-level settings.
+    fn read_from_disk(cwd: &std::path::Path) -> ForgeConfig {
+        match ForgeConfig::read_with_cwd(cwd) {
             Ok(config) => {
-                debug!(config = ?config, "read .forge.toml");
+                debug!(config = ?config, "read config (global + project)");
                 config
             }
             Err(e) => {
-                // NOTE: This should never-happen
                 error!(error = ?e, "Failed to read config file. Using default config.");
                 Default::default()
             }
@@ -405,7 +404,7 @@ impl EnvironmentInfra for ForgeEnvironmentInfra {
             if let Some(ref config) = *cache {
                 config.clone()
             } else {
-                let config = Self::read_from_disk();
+                let config = Self::read_from_disk(&self.cwd);
                 *cache = Some(config.clone());
                 config
             }
