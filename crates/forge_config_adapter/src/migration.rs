@@ -400,4 +400,153 @@ mod tests {
             "Should not create CLAUDE.md for empty config"
         );
     }
+
+    #[test]
+    fn test_plan_migration_non_claude_destination() {
+        use crate::adapters::CursorAdapter;
+        use crate::normalized::NormalizedConfig;
+
+        struct StubSource;
+        impl crate::ConfigAdapter for StubSource {
+            fn tool_name(&self) -> &str {
+                "stub"
+            }
+            fn detect(&self, _project_dir: &Path) -> bool {
+                true
+            }
+            fn read(
+                &self,
+                _project_dir: &Path,
+            ) -> Result<NormalizedConfig, crate::error::AdapterError> {
+                let mut config = NormalizedConfig::default();
+                config.model = Some("gpt-4".to_string());
+                config.custom_instructions = Some("Be helpful.".to_string());
+                Ok(config)
+            }
+            fn write(
+                &self,
+                _project_dir: &Path,
+                _config: &NormalizedConfig,
+            ) -> Result<(), crate::error::AdapterError> {
+                Ok(())
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let plan = plan_migration(&StubSource, &CursorAdapter, tmp.path()).unwrap();
+
+        assert_eq!(plan.dest_tool, "cursor");
+
+        // Dest dir should be .cursor (not .claude)
+        let settings_action = plan
+            .actions
+            .iter()
+            .find(|a| matches!(a, MigrationAction::CreateFile { path, .. } if path.file_name().unwrap().to_string_lossy() == "settings.json"))
+            .unwrap();
+        if let MigrationAction::CreateFile { path, .. } = settings_action {
+            assert!(
+                path.parent().unwrap().ends_with(".cursor"),
+                "Expected .cursor dir, got: {}",
+                path.display()
+            );
+        }
+
+        // Instructions file should be instructions.md (not CLAUDE.md)
+        let has_instructions_md = plan.actions.iter().any(|a| match a {
+            MigrationAction::CreateFile { path, .. } => {
+                path.file_name().unwrap().to_string_lossy() == "instructions.md"
+            }
+            _ => false,
+        });
+        assert!(
+            has_instructions_md,
+            "Non-claude dest should use instructions.md"
+        );
+
+        let has_claude_md = plan.actions.iter().any(|a| match a {
+            MigrationAction::CreateFile { path, .. } => {
+                path.file_name().unwrap().to_string_lossy() == "CLAUDE.md"
+            }
+            _ => false,
+        });
+        assert!(
+            !has_claude_md,
+            "Non-claude dest should NOT create CLAUDE.md"
+        );
+    }
+
+    #[test]
+    fn test_plan_migration_with_rules() {
+        use crate::adapters::ClaudeAdapter;
+        use crate::normalized::{NormalizedConfig, RuleFile};
+
+        struct StubSource;
+        impl crate::ConfigAdapter for StubSource {
+            fn tool_name(&self) -> &str {
+                "stub"
+            }
+            fn detect(&self, _project_dir: &Path) -> bool {
+                true
+            }
+            fn read(
+                &self,
+                _project_dir: &Path,
+            ) -> Result<NormalizedConfig, crate::error::AdapterError> {
+                let mut config = NormalizedConfig::default();
+                config.rules = vec![
+                    RuleFile {
+                        path: std::path::PathBuf::from("safety.md"),
+                        content: "No deletions.".to_string(),
+                    },
+                    RuleFile {
+                        path: std::path::PathBuf::from("style.md"),
+                        content: "Use idiomatic Rust.".to_string(),
+                    },
+                ];
+                Ok(config)
+            }
+            fn write(
+                &self,
+                _project_dir: &Path,
+                _config: &NormalizedConfig,
+            ) -> Result<(), crate::error::AdapterError> {
+                Ok(())
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let plan = plan_migration(&StubSource, &ClaudeAdapter, tmp.path()).unwrap();
+
+        // Collect CreateFile actions under the rules/ subdirectory
+        let rule_actions: Vec<_> = plan
+            .actions
+            .iter()
+            .filter(|a| match a {
+                MigrationAction::CreateFile { path, .. } => {
+                    path.to_string_lossy().contains("rules/")
+                        || path.to_string_lossy().contains("rules\\")
+                }
+                _ => false,
+            })
+            .collect();
+
+        assert_eq!(
+            rule_actions.len(),
+            2,
+            "Expected 2 rule CreateFile actions, got {}",
+            rule_actions.len()
+        );
+
+        // Verify the rule files are under .claude/rules/
+        for action in &rule_actions {
+            if let MigrationAction::CreateFile { path, .. } = action {
+                let path_str = path.to_string_lossy();
+                assert!(
+                    path_str.contains(".claude") && path_str.contains("rules"),
+                    "Rule path should be under .claude/rules/, got: {}",
+                    path_str
+                );
+            }
+        }
+    }
 }

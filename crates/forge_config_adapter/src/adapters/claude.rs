@@ -237,6 +237,9 @@ fn parse_mcp_servers(
 }
 
 fn read_rules_dir(rules_dir: &Path) -> Result<Vec<RuleFile>, AdapterError> {
+    if !rules_dir.exists() {
+        return Ok(Vec::new());
+    }
     let mut rules = Vec::new();
     let canonical_base = rules_dir
         .canonicalize()

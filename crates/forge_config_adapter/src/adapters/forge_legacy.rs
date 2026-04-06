@@ -397,6 +397,116 @@ provider = "anthropic"
     }
 
     #[test]
+    fn test_read_with_all_config_files() {
+        // ForgeLegacyAdapter.read() depends on the real home directory via
+        // config_dir(), so we test the full integration by exercising all three
+        // parsers together — the same code path that read() would follow.
+        let toml_content = r#"
+model = "claude-sonnet-4-20250514"
+provider = "anthropic"
+custom_instructions = "Always explain your reasoning."
+
+[agents.coder]
+model = "gpt-4"
+provider = "openai"
+api_key_env = "OPENAI_KEY"
+base_url = "https://api.openai.com"
+max_tokens = 4096
+
+[agents.reviewer]
+model = "claude-opus-4-20250514"
+provider = "anthropic"
+"#;
+        let mut config = NormalizedConfig::default();
+        parse_forge_toml(toml_content, Path::new(".forge.toml"), &mut config).unwrap();
+
+        // MCP servers
+        let mcp_json = r#"{
+            "context7": {
+                "command": "npx",
+                "args": ["-y", "@context7/mcp"],
+                "env": { "TOKEN": "secret" }
+            },
+            "filesystem": {
+                "command": "node",
+                "args": ["fs-server.js"],
+                "env": {}
+            }
+        }"#;
+        let parsed: serde_json::Value = serde_json::from_str(mcp_json).unwrap();
+        config.mcp_servers = parse_mcp_servers_json(parsed.as_object().unwrap());
+
+        // Permissions
+        let perms_yaml = r#"
+allowed_read_paths:
+  - /home/user
+  - /opt/data
+allowed_write_paths:
+  - /tmp
+allowed_commands:
+  - git
+  - cargo
+denied_commands:
+  - rm
+  - sudo
+"#;
+        config.permissions = parse_permissions_yaml(perms_yaml);
+
+        // Verify TOML fields
+        assert_eq!(config.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        assert_eq!(config.provider.as_deref(), Some("anthropic"));
+        assert_eq!(
+            config.custom_instructions.as_deref(),
+            Some("Always explain your reasoning.")
+        );
+        assert_eq!(config.agents.len(), 2);
+        let coder = config.agents.get("coder").unwrap();
+        assert_eq!(coder.model.as_deref(), Some("gpt-4"));
+        assert_eq!(coder.max_tokens, Some(4096));
+        let reviewer = config.agents.get("reviewer").unwrap();
+        assert_eq!(reviewer.model.as_deref(), Some("claude-opus-4-20250514"));
+
+        // Verify MCP servers
+        assert_eq!(config.mcp_servers.len(), 2);
+        assert_eq!(config.mcp_servers.get("context7").unwrap().command, "npx");
+        assert_eq!(
+            config.mcp_servers.get("filesystem").unwrap().command,
+            "node"
+        );
+
+        // Verify permissions
+        assert_eq!(
+            config.permissions.allowed_read_paths,
+            vec!["/home/user", "/opt/data"]
+        );
+        assert_eq!(config.permissions.allowed_write_paths, vec!["/tmp"]);
+        assert_eq!(config.permissions.allowed_commands, vec!["git", "cargo"]);
+        assert_eq!(config.permissions.denied_commands, vec!["rm", "sudo"]);
+    }
+
+    #[test]
+    fn test_parse_permissions_unknown_keys() {
+        // Unknown YAML keys should be silently ignored (the `_ => {}` branch).
+        let yaml = r#"
+allowed_commands:
+  - git
+unknown_key:
+  - something
+  - else
+another_unknown:
+  - value
+denied_commands:
+  - rm
+"#;
+        let perms = parse_permissions_yaml(yaml);
+        assert_eq!(perms.allowed_commands, vec!["git"]);
+        assert_eq!(perms.denied_commands, vec!["rm"]);
+        // Unknown keys should not appear anywhere
+        assert!(perms.allowed_read_paths.is_empty());
+        assert!(perms.allowed_write_paths.is_empty());
+    }
+
+    #[test]
     fn test_read_with_all_files() {
         // ForgeLegacyAdapter reads from the user's home directory, not project_dir.
         // We test the individual parsers instead, which is more reliable in CI.

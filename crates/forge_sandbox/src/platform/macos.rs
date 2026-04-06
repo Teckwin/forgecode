@@ -95,13 +95,14 @@ impl Sandbox for MacOsSandbox {
 
         // Write profile to a temp file to avoid shell injection via inline embedding.
         // Using a file reference is safer than embedding the profile string in a shell command.
-        let mut tmp = tempfile::NamedTempFile::new()?;
-        std::io::Write::write_all(&mut tmp, profile.as_bytes())?;
+        let tmp = tempfile::NamedTempFile::new()?;
         let profile_path = tmp.into_temp_path();
-        // Leak the temp path so it persists for the duration of command execution.
-        // The OS will clean up /tmp eventually.
-        let profile_path_str = profile_path.to_string_lossy().to_string();
-        std::mem::forget(profile_path);
+        // Persist the temp file (removes auto-delete on drop) so it survives
+        // until sandbox-exec reads it. The file remains on disk; /tmp cleanup
+        // will eventually reclaim it.
+        let persisted = profile_path.keep()?;
+        std::fs::write(&persisted, profile.as_bytes())?;
+        let profile_path_str = persisted.to_string_lossy().to_string();
 
         // Escape single quotes in command for shell embedding
         let escaped_command = command.replace('\'', "'\\''");

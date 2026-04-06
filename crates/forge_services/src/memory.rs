@@ -45,12 +45,26 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + DirectoryReaderIn
     }
 
     /// Write or update a memory file in the project memory directory.
+    ///
+    /// `filename` must be a simple filename (e.g. `"MEMORY.md"`, `"patterns.md"`).
+    /// Path separators and `..` components are rejected to prevent path traversal.
     pub async fn write_memory(&self, filename: &str, content: &str) -> anyhow::Result<PathBuf> {
+        // Validate filename — reject path traversal attempts
+        if filename.contains('/')
+            || filename.contains('\\')
+            || filename.contains("..")
+            || filename.is_empty()
+        {
+            anyhow::bail!(
+                "Invalid memory filename: must be a simple filename without path separators or '..'"
+            );
+        }
+
         let env = self.infra.get_environment();
         let dir = env.memory_project_path();
+        let path = dir.join(filename);
 
         // Ensure directory exists
-        let path = dir.join(filename);
         if let Some(parent) = path.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
@@ -419,5 +433,50 @@ mod tests {
 
         let content = tokio::fs::read_to_string(&path).await.unwrap();
         assert_eq!(content, "new content");
+    }
+
+    #[tokio::test]
+    async fn test_write_memory_rejects_path_traversal() {
+        let mock = MockMemoryInfra::new();
+        let svc = service(mock);
+
+        let result = svc.write_memory("../escape.md", "bad").await;
+        assert!(
+            result.is_err(),
+            "Path traversal with '..' should be rejected"
+        );
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Invalid memory filename"),
+            "Error should mention invalid filename, got: {err_msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_write_memory_rejects_slashes() {
+        let mock = MockMemoryInfra::new();
+        let svc = service(mock);
+
+        let result = svc.write_memory("sub/file.md", "bad").await;
+        assert!(result.is_err(), "Path with '/' should be rejected");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Invalid memory filename"),
+            "Error should mention invalid filename, got: {err_msg}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_write_memory_rejects_empty() {
+        let mock = MockMemoryInfra::new();
+        let svc = service(mock);
+
+        let result = svc.write_memory("", "bad").await;
+        assert!(result.is_err(), "Empty filename should be rejected");
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Invalid memory filename"),
+            "Error should mention invalid filename, got: {err_msg}"
+        );
     }
 }
