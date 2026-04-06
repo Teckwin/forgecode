@@ -117,40 +117,44 @@ jobs:
         release_id: ${{ github.event.release.id }}
         file: ${{ matrix.binary_name }}
         overwrite: 'true'
-  npm_release:
-    needs:
-    - build_release
-    name: npm_release
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        repository:
-        - antinomyhq/npm-code-forge
-        - antinomyhq/npm-forgecode
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v6
-      with:
-        repository: ${{ matrix.repository }}
-        ref: main
-        token: ${{ secrets.NPM_ACCESS }}
-    - name: Update NPM Package
-      run: './update-package.sh ${{ github.event.release.tag_name }}'
-      env:
-        AUTO_PUSH: 'true'
-        CI: 'true'
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-  homebrew_release:
-    needs:
-    - build_release
-    name: homebrew_release
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v6
-      with:
-        repository: antinomyhq/homebrew-code-forge
-        ref: main
-        token: ${{ secrets.HOMEBREW_ACCESS }}
-    - name: Update Homebrew Formula
-      run: GITHUB_TOKEN="${{ secrets.HOMEBREW_ACCESS }}" ./update-formula.sh ${{ github.event.release.tag_name }}
+  # NOTE: npm and homebrew release jobs are disabled for now.
+  # Using curl + install.sh for installation instead.
+  # Uncomment when NPM_ACCESS, NPM_TOKEN, and HOMEBREW_ACCESS secrets are configured.
+  #
+  # npm_release:
+  #   needs:
+  #   - build_release
+  #   name: npm_release
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       repository:
+  #       - antinomyhq/npm-code-forge
+  #       - antinomyhq/npm-forgecode
+  #   steps:
+  #   - name: Checkout Code
+  #     uses: actions/checkout@v6
+  #     with:
+  #       repository: ${{ matrix.repository }}
+  #       ref: main
+  #       token: ${{ secrets.NPM_ACCESS }}
+  #   - name: Update NPM Package
+  #     run: './update-package.sh ${{ github.event.release.tag_name }}'
+  #     env:
+  #       AUTO_PUSH: 'true'
+  #       CI: 'true'
+  #       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  # homebrew_release:
+  #   needs:
+  #   - build_release
+  #   name: homebrew_release
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout Code
+  #     uses: actions/checkout@v6
+  #     with:
+  #       repository: antinomyhq/homebrew-code-forge
+  #       ref: main
+  #       token: ${{ secrets.HOMEBREW_ACCESS }}
+  #   - name: Update Homebrew Formula
+  #     run: GITHUB_TOKEN="${{ secrets.HOMEBREW_ACCESS }}" ./update-formula.sh ${{ github.event.release.tag_name }}
