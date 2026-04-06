@@ -131,6 +131,7 @@ mod tests {
             writable_paths: vec![],
             allow_network: false,
             enabled: true,
+            ..Default::default()
         }
     }
 

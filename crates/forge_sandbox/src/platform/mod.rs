@@ -88,6 +88,7 @@ mod tests {
             writable_paths: vec![],
             allow_network: false,
             enabled: false,
+            ..Default::default()
         };
         let sandbox = create_sandbox(config);
 
@@ -119,6 +120,7 @@ mod tests {
             writable_paths: vec![PathBuf::from("/tmp/out")],
             allow_network: false,
             enabled: true,
+            ..Default::default()
         };
         let sandbox = create_sandbox(config);
         let result = sandbox

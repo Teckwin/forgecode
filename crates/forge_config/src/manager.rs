@@ -185,10 +185,10 @@ mod tests {
     }
 
     #[test]
-    fn test_config_manager_sandbox_default_disabled() {
+    fn test_config_manager_sandbox_default_enabled() {
         let manager = ConfigManager::new(PathBuf::from("/tmp/test")).unwrap();
         let sandbox = manager.sandbox_settings();
-        assert!(!sandbox.enabled);
+        assert!(sandbox.enabled);
     }
 
     #[test]

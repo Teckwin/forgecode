@@ -60,6 +60,7 @@ impl ForgeInfra {
         forge_config_adapter::try_auto_migrate(&cwd);
 
         let config_infra = Arc::new(ForgeEnvironmentInfra::new(cwd));
+        let config = config_infra.get_config();
         let env = config_infra.get_environment();
 
         let file_write_service = Arc::new(ForgeFileWriteService::new());
@@ -71,6 +72,31 @@ impl ForgeInfra {
         let grpc_client = Arc::new(ForgeGrpcClient::new(env.service_url.clone()));
         let output_printer = Arc::new(StdConsoleWriter::default());
 
+        // Build command executor with sandbox from config (defaults to enabled)
+        let mut executor = ForgeCommandExecutorService::new(env.clone(), output_printer.clone());
+        {
+            use forge_sandbox::config::SandboxFallback;
+            use forge_sandbox::{SandboxConfig, create_sandbox};
+
+            let sandbox_settings = config.sandbox.clone().unwrap_or_default();
+
+            let sandbox_config = SandboxConfig {
+                cwd: env.cwd.clone(),
+                readonly_paths: sandbox_settings.readonly_paths.clone(),
+                writable_paths: sandbox_settings.writable_paths.clone(),
+                allow_network: sandbox_settings.allow_network,
+                enabled: sandbox_settings.enabled,
+                sandbox_fallback: match sandbox_settings.sandbox_fallback {
+                    forge_config::SandboxFallback::Deny => SandboxFallback::Deny,
+                    forge_config::SandboxFallback::Allow => SandboxFallback::Allow,
+                },
+            };
+            let fallback = sandbox_config.sandbox_fallback.clone();
+            executor = executor
+                .with_sandbox(create_sandbox(sandbox_config))
+                .with_sandbox_fallback(fallback);
+        }
+
         Self {
             file_read_service,
             file_write_service,
@@ -79,10 +105,7 @@ impl ForgeInfra {
             file_meta_service,
             create_dirs_service: Arc::new(ForgeCreateDirsService),
             directory_reader_service,
-            command_executor_service: Arc::new(ForgeCommandExecutorService::new(
-                env.clone(),
-                output_printer.clone(),
-            )),
+            command_executor_service: Arc::new(executor),
             inquire_service: Arc::new(ForgeInquire::new()),
             mcp_server: ForgeMcpServer,
             walker_service: Arc::new(ForgeWalkerService::new()),

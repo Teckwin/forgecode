@@ -374,6 +374,18 @@ impl ForgeEnvironmentInfra {
         Self { cwd, cache: Arc::new(std::sync::Mutex::new(None)) }
     }
 
+    /// Returns the merged ForgeConfig (from defaults + global + project + env).
+    pub fn get_config(&self) -> ForgeConfig {
+        let mut cache = self.cache.lock().expect("cache mutex poisoned");
+        if let Some(ref config) = *cache {
+            config.clone()
+        } else {
+            let config = Self::read_from_disk(&self.cwd);
+            *cache = Some(config.clone());
+            config
+        }
+    }
+
     /// Reads [`ForgeConfig`] from disk, including project-level settings.
     fn read_from_disk(cwd: &std::path::Path) -> ForgeConfig {
         match ForgeConfig::read_with_cwd(cwd) {

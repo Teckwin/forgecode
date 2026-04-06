@@ -830,6 +830,21 @@
         }
       }
     },
+    "SandboxFallback": {
+      "description": "What to do when sandbox wrapping fails or sandbox is unavailable.",
+      "oneOf": [
+        {
+          "description": "Block the command (fail-closed). This is the secure default.",
+          "type": "string",
+          "const": "deny"
+        },
+        {
+          "description": "Run the command without sandbox (fail-open). Use only when you\nunderstand the security implications.",
+          "type": "string",
+          "const": "allow"
+        }
+      ]
+    },
     "SandboxSettings": {
       "description": "Settings for OS-level sandbox enforcement on tool execution.",
       "type": "object",
@@ -840,9 +855,9 @@
           "default": true
         },
         "enabled": {
-          "description": "Whether sandbox enforcement is enabled.",
+          "description": "Whether sandbox enforcement is enabled. Defaults to `true`.",
           "type": "boolean",
-          "default": false
+          "default": true
         },
         "readonly_paths": {
           "description": "Additional paths the sandbox may read (beyond system defaults).",
@@ -850,6 +865,11 @@
           "items": {
             "type": "string"
           }
+        },
+        "sandbox_fallback": {
+          "description": "Behavior when sandbox wrapping fails or sandbox is unavailable.\n`deny` (default) blocks the command; `allow` runs it unsandboxed.",
+          "$ref": "#/$defs/SandboxFallback",
+          "default": "deny"
         },
         "writable_paths": {
           "description": "Additional paths the sandbox may write to (beyond `cwd`).",
