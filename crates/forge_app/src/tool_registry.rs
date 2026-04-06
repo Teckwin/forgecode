@@ -69,8 +69,15 @@ impl<S: Services> ToolRegistry<S> {
     ) -> anyhow::Result<bool> {
         let cwd = self.services.get_environment().cwd;
         let operation = tool_input.to_policy_operation(cwd.clone());
-        if let Some(operation) = operation {
-            let decision = self.services.check_operation_permission(&operation).await?;
+        if let Some(ref operation) = operation {
+            let decision = self.services.check_operation_permission(operation).await?;
+
+            tracing::info!(
+                tool = %tool_input,
+                operation = ?operation,
+                allowed = decision.allowed,
+                "Permission decision"
+            );
 
             // Send custom policy message to the user when a policy file was created
             if let Some(policy_path) = decision.path {
