@@ -311,7 +311,9 @@ impl CommandInfra for ForgeCommandExecutorService {
             } else {
                 match self.sandbox_fallback {
                     SandboxFallback::Allow => {
-                        tracing::debug!("Sandbox not available for raw command, executing unsandboxed (fallback=allow)");
+                        tracing::debug!(
+                            "Sandbox not available for raw command, executing unsandboxed (fallback=allow)"
+                        );
                         command.to_string()
                     }
                     SandboxFallback::Deny => {

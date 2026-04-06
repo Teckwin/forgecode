@@ -78,10 +78,7 @@ impl ForgeInfra {
             use forge_sandbox::config::SandboxFallback;
             use forge_sandbox::{SandboxConfig, create_sandbox};
 
-            let sandbox_settings = config
-                .sandbox
-                .clone()
-                .unwrap_or_default();
+            let sandbox_settings = config.sandbox.clone().unwrap_or_default();
 
             let sandbox_config = SandboxConfig {
                 cwd: env.cwd.clone(),
