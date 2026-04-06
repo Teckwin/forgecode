@@ -81,20 +81,18 @@ impl From<ReleaseBuilderJob> for Job {
                     .add_env(("APP_VERSION", value.version.to_string())),
             );
 
-        if let Some(release_id) = value.release_id {
+        if let Some(_release_id) = value.release_id {
             job = job
                 // Rename binary to target name
                 .add_step(
                     Step::new("Copy Binary")
                         .run("cp ${{ matrix.binary_path }} ${{ matrix.binary_name }}"),
                 )
-                // Upload to the generated github release id
+                // Upload to the release tag using gh cli (compatible with immutable releases)
                 .add_step(
                     Step::new("Upload to Release")
-                        .uses("xresloader", "upload-to-github-release", "v1")
-                        .add_with(("release_id", release_id))
-                        .add_with(("file", "${{ matrix.binary_name }}"))
-                        .add_with(("overwrite", "true")),
+                        .run("gh release upload ${{ github.event.release.tag_name }} ${{ matrix.binary_name }} --clobber")
+                        .add_env(("GH_TOKEN", "${{ secrets.GITHUB_TOKEN }}")),
                 );
         }
 
