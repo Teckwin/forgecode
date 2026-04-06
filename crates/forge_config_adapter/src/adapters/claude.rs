@@ -451,4 +451,73 @@ mod tests {
             "No destructive operations."
         );
     }
+
+    #[test]
+    fn write_rejects_rule_path_with_parent_dir() {
+        let tmp = TempDir::new().unwrap();
+        let mut config = NormalizedConfig::default();
+        config.rules.push(RuleFile {
+            path: std::path::PathBuf::from("../escape.md"),
+            content: "malicious".to_string(),
+        });
+
+        let result = ClaudeAdapter.write(tmp.path(), &config);
+        assert!(result.is_err(), "Rule path with '..' should be rejected");
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains(".."), "Error should mention '..'");
+    }
+
+    #[test]
+    fn read_mcp_skips_empty_command() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join(".mcp.json"),
+            r#"{
+                "mcpServers": {
+                    "valid": { "command": "node", "args": [] },
+                    "empty_cmd": { "command": "", "args": [] },
+                    "no_cmd": { "args": ["--help"] }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(
+            config.mcp_servers.len(),
+            1,
+            "Only valid server should be included"
+        );
+        assert!(config.mcp_servers.contains_key("valid"));
+    }
+
+    #[test]
+    fn read_rules_dir_with_nonexistent_dir_returns_empty() {
+        let tmp = TempDir::new().unwrap();
+        std::fs::create_dir(tmp.path().join(".claude")).unwrap();
+        // No rules/ dir created
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert!(config.rules.is_empty());
+    }
+
+    #[test]
+    fn read_parses_write_paths() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join("settings.json"),
+            r#"{ "permissions": { "allowedWritePaths": ["/tmp/output", "/var/data"] } }"#,
+        )
+        .unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(
+            config.permissions.allowed_write_paths,
+            vec!["/tmp/output", "/var/data"]
+        );
+    }
 }
