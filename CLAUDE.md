@@ -35,8 +35,10 @@ cannot have assets uploaded after publication. This is a critical constraint.
 │   Tries to rebuild + re-upload binaries to the published release│
 │   ⚠ EXPECTED FAILURE: "Upload to Release" step fails because   │
 │   immutable releases reject asset uploads after publication.    │
-│   The first platform to finish build (e.g. x86_64-apple-darwin)│
-│   fails at upload, cancelling the remaining matrix jobs.        │
+│   The fastest platform to finish its build reaches the upload   │
+│   step first and fails, triggering fail-fast cascade that       │
+│   cancels all remaining matrix jobs (e.g. v0.1.4:               │
+│   x86_64-apple-darwin failed → 8 others cancelled).             │
 │                                                                 │
 │   THIS IS FINE — the binaries were already uploaded during the  │
 │   draft phase by ci.yml. This workflow exists only for upstream │
