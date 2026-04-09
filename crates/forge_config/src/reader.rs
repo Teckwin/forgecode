@@ -37,6 +37,47 @@ pub struct ConfigReader {
 }
 
 impl ConfigReader {
+    fn apply_legacy_claude_env(mut config: ForgeConfig) -> ForgeConfig {
+        let anthropic_base_url = std::env::var("ANTHROPIC_BASE_URL").ok();
+        let anthropic_model = std::env::var("ANTHROPIC_MODEL").ok();
+        let anthropic_auth_token = std::env::var("ANTHROPIC_AUTH_TOKEN").ok();
+        let inferred_provider = if anthropic_base_url.is_some() || anthropic_auth_token.is_some() {
+            "anthropic_compatible"
+        } else {
+            "anthropic"
+        };
+
+        if config
+            .session
+            .as_ref()
+            .and_then(|session| session.provider_id.as_ref())
+            .is_none()
+            && (anthropic_base_url.is_some()
+                || anthropic_auth_token.is_some()
+                || anthropic_model.is_some())
+        {
+            config.session = Some(
+                config
+                    .session
+                    .unwrap_or_default()
+                    .provider_id(inferred_provider),
+            );
+        }
+
+        if let Some(model) = anthropic_model
+            && config
+                .session
+                .as_ref()
+                .and_then(|session| session.model_id.as_ref())
+                .is_none()
+        {
+            let session = config.session.clone().unwrap_or_default().model_id(model);
+            config.session = Some(session);
+        }
+
+        config
+    }
+
     /// Returns the path to the legacy JSON config file
     /// (`~/.forge/.config.json`).
     pub fn config_legacy_path() -> PathBuf {
@@ -100,7 +141,8 @@ impl ConfigReader {
     pub fn build(self) -> crate::Result<ForgeConfig> {
         *LOAD_DOT_ENV;
         let config = self.builder.build()?;
-        Ok(config.try_deserialize::<ForgeConfig>()?)
+        let config = config.try_deserialize::<ForgeConfig>()?;
+        Ok(Self::apply_legacy_claude_env(config))
     }
 
     /// Adds `~/.forge/.forge.toml` as a config source, silently skipping if
@@ -205,6 +247,27 @@ mod tests {
         let expected = Some(ModelConfig {
             provider_id: Some("fake-provider".to_string()),
             model_id: Some("fake-model".to_string()),
+        });
+        assert_eq!(actual.session, expected);
+    }
+
+    #[test]
+    fn test_read_session_from_legacy_claude_env_vars() {
+        let _guard = EnvGuard::set(&[
+            ("ANTHROPIC_BASE_URL", "https://gateway.example.com"),
+            ("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+            ("ANTHROPIC_AUTH_TOKEN", "token-value"),
+        ]);
+
+        let actual = ConfigReader::default()
+            .read_defaults()
+            .read_env()
+            .build()
+            .unwrap();
+
+        let expected = Some(ModelConfig {
+            provider_id: Some("anthropic_compatible".to_string()),
+            model_id: Some("claude-sonnet-4-6".to_string()),
         });
         assert_eq!(actual.session, expected);
     }

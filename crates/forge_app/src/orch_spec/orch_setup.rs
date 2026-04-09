@@ -97,6 +97,7 @@ impl Default for TestContext {
                 session: None,
                 commit: None,
                 suggest: None,
+                agents: None,
                 is_restricted: false,
                 temperature: None,
                 top_p: None,
