@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use forge_app::EnvironmentInfra;
-use forge_config::{ConfigReader, ForgeConfig, ModelConfig};
+use forge_config::{AgentProviderSettings, ConfigReader, ForgeConfig, ModelConfig};
 use forge_domain::{
-    AutoDumpFormat, Compact, ConfigOperation, Environment, HttpConfig, MaxTokens, ModelId,
-    RetryConfig, SessionConfig, Temperature, TlsBackend, TlsVersion, TopK, TopP, Update,
-    UpdateFrequency,
+    AgentProviderConfig, AutoDumpFormat, Compact, ConfigOperation, Environment, HttpConfig,
+    MaxTokens, ModelId, RetryConfig, SessionConfig, Temperature, TlsBackend, TlsVersion, TopK,
+    TopP, Update, UpdateFrequency,
 };
 use reqwest::Url;
 use tracing::{debug, error};
@@ -17,6 +17,42 @@ fn to_session_config(mc: &ModelConfig) -> SessionConfig {
     SessionConfig {
         provider_id: mc.provider_id.clone(),
         model_id: mc.model_id.clone(),
+    }
+}
+
+fn to_agent_provider_config(config: &AgentProviderSettings) -> AgentProviderConfig {
+    AgentProviderConfig {
+        provider_id: config.provider.clone(),
+        model_id: config.model.clone(),
+        api_key: config.api_key.clone(),
+        base_url: config.base_url.clone(),
+        temperature: config.parameters.as_ref().and_then(|p| p.temperature),
+        top_p: config.parameters.as_ref().and_then(|p| p.top_p),
+        top_k: config.parameters.as_ref().and_then(|p| p.top_k),
+        max_tokens: config.parameters.as_ref().and_then(|p| p.max_tokens),
+    }
+}
+
+fn to_agent_provider_settings(config: &AgentProviderConfig) -> AgentProviderSettings {
+    AgentProviderSettings {
+        provider: config.provider_id.clone(),
+        model: config.model_id.clone(),
+        api_key: config.api_key.clone(),
+        base_url: config.base_url.clone(),
+        parameters: if config.temperature.is_some()
+            || config.top_p.is_some()
+            || config.top_k.is_some()
+            || config.max_tokens.is_some()
+        {
+            Some(forge_config::AgentParameterSettings {
+                temperature: config.temperature,
+                top_p: config.top_p,
+                top_k: config.top_k,
+                max_tokens: config.max_tokens,
+            })
+        } else {
+            None
+        },
     }
 }
 
@@ -163,6 +199,12 @@ fn to_environment(fc: ForgeConfig, cwd: PathBuf) -> Environment {
         session: fc.session.as_ref().map(to_session_config),
         commit: fc.commit.as_ref().map(to_session_config),
         suggest: fc.suggest.as_ref().map(to_session_config),
+        agents: fc.agents.as_ref().map(|agents| {
+            agents
+                .iter()
+                .map(|(id, config)| (id.clone(), to_agent_provider_config(config)))
+                .collect()
+        }),
         is_restricted: fc.restricted,
         tool_supported: fc.tool_supported,
         temperature: fc
@@ -349,6 +391,12 @@ fn to_forge_config(env: &Environment) -> ForgeConfig {
     fc.suggest = env.suggest.as_ref().map(|sc| ModelConfig {
         provider_id: sc.provider_id.clone(),
         model_id: sc.model_id.clone(),
+    });
+    fc.agents = env.agents.as_ref().map(|agents| {
+        agents
+            .iter()
+            .map(|(id, config)| (id.clone(), to_agent_provider_settings(config)))
+            .collect()
     });
     fc
 }

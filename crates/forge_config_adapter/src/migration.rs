@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::ConfigAdapter;
 use crate::error::AdapterError;
+use crate::normalized_config_to_settings_json;
 
 /// A single action in a migration plan.
 #[derive(Debug, Clone)]
@@ -45,13 +46,8 @@ pub fn plan_migration(
     let config = source.read(project_dir)?;
 
     let mut actions = Vec::new();
-
-    // Settings / main config
-    let settings_json = serde_json::to_string_pretty(&serde_json::json!({
-        "model": config.model,
-        "provider": config.provider,
-    }))
-    .map_err(|e| AdapterError::Other(e.to_string()))?;
+    let settings_json = serde_json::to_string_pretty(&normalized_config_to_settings_json(&config))
+        .map_err(|e| AdapterError::Other(e.to_string()))?;
 
     let dest_dir = match dest.tool_name() {
         "claude" => project_dir.join(".claude"),
@@ -271,6 +267,79 @@ mod tests {
 
         assert_eq!(std::fs::read_to_string(&file1).unwrap(), "one");
         assert_eq!(std::fs::read_to_string(&file2).unwrap(), "two");
+    }
+
+    #[test]
+    fn test_plan_migration_writes_session_and_agents_shape() {
+        use crate::adapters::ClaudeAdapter;
+        use crate::normalized::{AgentProviderConfig, NormalizedConfig};
+        use std::collections::HashMap;
+
+        struct StubSource(NormalizedConfig);
+        impl crate::ConfigAdapter for StubSource {
+            fn tool_name(&self) -> &str {
+                "stub"
+            }
+            fn detect(&self, _project_dir: &Path) -> bool {
+                true
+            }
+            fn read(
+                &self,
+                _project_dir: &Path,
+            ) -> Result<NormalizedConfig, crate::error::AdapterError> {
+                Ok(self.0.clone())
+            }
+            fn write(
+                &self,
+                _project_dir: &Path,
+                _config: &NormalizedConfig,
+            ) -> Result<(), crate::error::AdapterError> {
+                Ok(())
+            }
+        }
+
+        let tmp = TempDir::new().unwrap();
+        let source = StubSource(NormalizedConfig {
+            model: Some("claude-sonnet-4-20250514".to_string()),
+            provider: Some("anthropic".to_string()),
+            agents: HashMap::from([(
+                "sage".to_string(),
+                AgentProviderConfig {
+                    provider: Some("openai".to_string()),
+                    model: Some("gpt-4o".to_string()),
+                    api_key_env: Some("${OPENAI_API_KEY}".to_string()),
+                    base_url: Some("https://example.com/v1".to_string()),
+                    max_tokens: Some(2048),
+                },
+            )]),
+            ..Default::default()
+        });
+
+        let plan = plan_migration(&source, &ClaudeAdapter, tmp.path()).unwrap();
+        let settings = plan
+            .actions
+            .iter()
+            .find_map(|a| match a {
+                MigrationAction::CreateFile { path, content }
+                    if path.file_name().unwrap().to_string_lossy() == "settings.json" =>
+                {
+                    Some(content)
+                }
+                _ => None,
+            })
+            .unwrap();
+
+        let parsed: serde_json::Value = serde_json::from_str(settings).unwrap();
+        assert_eq!(parsed["session"]["provider_id"], "anthropic");
+        assert_eq!(parsed["session"]["model_id"], "claude-sonnet-4-20250514");
+        assert_eq!(parsed["agents"]["sage"]["provider"], "openai");
+        assert_eq!(parsed["agents"]["sage"]["model"], "gpt-4o");
+        assert_eq!(parsed["agents"]["sage"]["api_key"], "${OPENAI_API_KEY}");
+        assert_eq!(
+            parsed["agents"]["sage"]["base_url"],
+            "https://example.com/v1"
+        );
+        assert_eq!(parsed["agents"]["sage"]["parameters"]["max_tokens"], 2048);
     }
 
     #[test]

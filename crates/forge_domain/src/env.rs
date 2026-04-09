@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -23,6 +24,31 @@ pub struct SessionConfig {
     pub provider_id: Option<String>,
     /// The model ID to use with this provider.
     pub model_id: Option<String>,
+}
+
+/// Per-agent configuration overrides loaded from settings.json.
+///
+/// This mirrors the user-configurable `agents.<id>` shape while staying
+/// decoupled from the on-disk config crate.
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, Setters, fake::Dummy)]
+#[setters(strip_option, into)]
+pub struct AgentProviderConfig {
+    /// Agent-specific provider ID.
+    pub provider_id: Option<String>,
+    /// Agent-specific model ID.
+    pub model_id: Option<String>,
+    /// Optional API key override as configured by the user.
+    pub api_key: Option<String>,
+    /// Optional base URL override.
+    pub base_url: Option<String>,
+    /// Optional temperature override.
+    pub temperature: Option<f64>,
+    /// Optional top-p override.
+    pub top_p: Option<f64>,
+    /// Optional top-k override.
+    pub top_k: Option<u32>,
+    /// Optional max_tokens override.
+    pub max_tokens: Option<u32>,
 }
 
 /// All discrete mutations that can be applied to the application configuration.
@@ -144,6 +170,9 @@ pub struct Environment {
     /// Provider and model for shell command suggestion generation.
     #[dummy(default)]
     pub suggest: Option<SessionConfig>,
+    /// Per-agent provider/model overrides from user config.
+    #[dummy(default)]
+    pub agents: Option<HashMap<String, AgentProviderConfig>>,
     /// Whether the application is running in restricted mode.
     /// When true, tool execution requires explicit permission grants.
     pub is_restricted: bool,

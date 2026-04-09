@@ -156,6 +156,102 @@ impl<F: EnvironmentInfra + HttpInfra> ForgeProviderRepository<F> {
 impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + HttpInfra>
     ForgeProviderRepository<F>
 {
+    fn normalize_anthropic_compatible_url(url: &str) -> String {
+        let trimmed = url.trim_end_matches('/');
+        if trimmed.ends_with("/v1") {
+            trimmed.to_string()
+        } else {
+            format!("{trimmed}/v1")
+        }
+    }
+
+    fn get_anthropic_compatible_url_from_env(&self) -> Option<String> {
+        self.infra
+            .get_env_var("ANTHROPIC_URL")
+            .or_else(|| self.infra.get_env_var("ANTHROPIC_BASE_URL"))
+            .map(|url| Self::normalize_anthropic_compatible_url(&url))
+    }
+
+    fn get_anthropic_compatible_api_key_from_env(&self) -> Option<String> {
+        self.infra
+            .get_env_var("ANTHROPIC_API_KEY")
+            .or_else(|| self.infra.get_env_var("ANTHROPIC_AUTH_TOKEN"))
+    }
+
+    fn get_api_key_from_env(&self, config: &ProviderConfig) -> anyhow::Result<String> {
+        if config.id == ProviderId::ANTHROPIC_COMPATIBLE {
+            return self
+                .get_anthropic_compatible_api_key_from_env()
+                .ok_or_else(|| Error::env_var_not_found(config.id.clone(), "ANTHROPIC_API_KEY"))
+                .map_err(Into::into);
+        }
+
+        if let Some(api_key_var) = &config.api_key_vars {
+            self.infra
+                .get_env_var(api_key_var)
+                .ok_or_else(|| Error::env_var_not_found(config.id.clone(), api_key_var).into())
+        } else {
+            Ok(String::new())
+        }
+    }
+
+    fn get_url_params_from_env(
+        &self,
+        config: &ProviderConfig,
+    ) -> anyhow::Result<std::collections::HashMap<URLParam, URLParamValue>> {
+        let mut url_params = std::collections::HashMap::new();
+
+        for env_var in &config.url_param_vars {
+            let name = env_var.param_name();
+            let value = if config.id == ProviderId::ANTHROPIC_COMPATIBLE && name == "ANTHROPIC_URL"
+            {
+                self.get_anthropic_compatible_url_from_env()
+            } else {
+                self.infra.get_env_var(name)
+            };
+
+            if let Some(value) = value {
+                url_params.insert(URLParam::from(name.to_string()), URLParamValue::from(value));
+            } else {
+                return Err(Error::env_var_not_found(config.id.clone(), name).into());
+            }
+        }
+
+        Ok(url_params)
+    }
+
+    fn apply_env_credential_overrides(
+        &self,
+        config: &ProviderConfig,
+        credential: &mut AuthCredential,
+    ) {
+        if config.id != ProviderId::ANTHROPIC_COMPATIBLE {
+            return;
+        }
+
+        if let Some(api_key) = self.get_anthropic_compatible_api_key_from_env() {
+            credential.auth_details = AuthDetails::ApiKey(ApiKey::from(api_key));
+        }
+
+        if let Some(url) = self.get_anthropic_compatible_url_from_env() {
+            credential.url_params.insert(
+                URLParam::from("ANTHROPIC_URL".to_string()),
+                URLParamValue::from(url),
+            );
+        }
+
+        if let Some(existing_url) = credential
+            .url_params
+            .get(&URLParam::from("ANTHROPIC_URL".to_string()))
+            .map(|value| value.to_string())
+        {
+            credential.url_params.insert(
+                URLParam::from("ANTHROPIC_URL".to_string()),
+                URLParamValue::from(Self::normalize_anthropic_compatible_url(&existing_url)),
+            );
+        }
+    }
+
     async fn get_custom_provider_configs(&self) -> anyhow::Result<Vec<ProviderConfig>> {
         let environment = self.infra.get_environment();
         let provider_json_path = environment.provider_config_path();
@@ -212,7 +308,7 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + HttpInfra>
         let configs = self.get_merged_configs().await;
 
         let has_openai_url = self.infra.get_env_var("OPENAI_URL").is_some();
-        let has_anthropic_url = self.infra.get_env_var("ANTHROPIC_URL").is_some();
+        let has_anthropic_url = self.get_anthropic_compatible_url_from_env().is_some();
 
         for config in configs {
             // Skip Forge provider and ContextEngine providers - they're not configurable
@@ -259,27 +355,8 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + HttpInfra>
         &self,
         config: &ProviderConfig,
     ) -> anyhow::Result<AuthCredential> {
-        // Check API key environment variable (if specified)
-        let api_key = if let Some(api_key_var) = &config.api_key_vars {
-            self.infra
-                .get_env_var(api_key_var)
-                .ok_or_else(|| Error::env_var_not_found(config.id.clone(), api_key_var))?
-        } else {
-            // For context engine, we don't use env vars for API key
-            String::new()
-        };
-
-        // Check URL parameter environment variables
-        let mut url_params = std::collections::HashMap::new();
-
-        for env_var in &config.url_param_vars {
-            let name = env_var.param_name();
-            if let Some(value) = self.infra.get_env_var(name) {
-                url_params.insert(URLParam::from(name.to_string()), URLParamValue::from(value));
-            } else {
-                return Err(Error::env_var_not_found(config.id.clone(), name).into());
-            }
-        }
+        let api_key = self.get_api_key_from_env(config)?;
+        let url_params = self.get_url_params_from_env(config)?;
 
         // Create AuthCredential
         Ok(AuthCredential {
@@ -320,6 +397,8 @@ impl<F: EnvironmentInfra + FileReaderInfra + FileWriterInfra + HttpInfra>
                 }
             }
         }
+
+        self.apply_env_credential_overrides(config, &mut credential);
 
         // Handle models - keep as templates
         let models = config.models.as_ref().map(|m| match m {
@@ -1058,6 +1137,190 @@ mod env_tests {
                 .get(&URLParam::from("ANTHROPIC_URL".to_string()))
                 .map(|v| v.as_str()),
             Some("https://custom.anthropic.com/v1")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_migration_supports_anthropic_base_url_and_auth_token() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            "https://custom.anthropic.com".to_string(),
+        );
+        env_vars.insert(
+            "ANTHROPIC_AUTH_TOKEN".to_string(),
+            "test-auth-token".to_string(),
+        );
+
+        let infra = Arc::new(MockInfra::new(env_vars));
+        let registry = ForgeProviderRepository::new(infra.clone());
+
+        registry.migrate_env_to_file().await.unwrap();
+
+        let credentials_guard = infra.credentials.lock().await;
+        let credentials = credentials_guard.as_ref().unwrap();
+
+        assert!(
+            !credentials.iter().any(|c| c.id == ProviderId::ANTHROPIC),
+            "Should NOT create Anthropic credential when ANTHROPIC_BASE_URL is set"
+        );
+
+        let anthropic_compat_cred = credentials
+            .iter()
+            .find(|c| c.id == ProviderId::ANTHROPIC_COMPATIBLE)
+            .unwrap();
+
+        match &anthropic_compat_cred.auth_details {
+            AuthDetails::ApiKey(key) => assert_eq!(key.as_str(), "test-auth-token"),
+            _ => panic!("Expected API key"),
+        }
+
+        assert_eq!(
+            anthropic_compat_cred
+                .url_params
+                .get(&URLParam::from("ANTHROPIC_URL".to_string()))
+                .map(|v| v.as_str()),
+            Some("https://custom.anthropic.com/v1")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_provider_applies_anthropic_env_overrides_to_stored_credential() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            "https://override.anthropic.test".to_string(),
+        );
+        env_vars.insert(
+            "ANTHROPIC_AUTH_TOKEN".to_string(),
+            "override-token".to_string(),
+        );
+
+        let infra = Arc::new(MockInfra::new(env_vars));
+        {
+            let mut guard = infra.credentials.lock().await;
+            *guard = Some(vec![AuthCredential {
+                id: ProviderId::ANTHROPIC_COMPATIBLE,
+                auth_details: AuthDetails::ApiKey(ApiKey::from("stored-token".to_string())),
+                url_params: HashMap::from([(
+                    URLParam::from("ANTHROPIC_URL".to_string()),
+                    URLParamValue::from("https://stored.anthropic.test".to_string()),
+                )]),
+            }]);
+        }
+
+        let registry = ForgeProviderRepository::new(infra);
+        let config = get_provider_configs()
+            .iter()
+            .find(|c| c.id == ProviderId::ANTHROPIC_COMPATIBLE)
+            .unwrap();
+
+        let provider = registry.create_provider(config).await.unwrap();
+        let credential = provider.credential.as_ref().unwrap();
+
+        match &credential.auth_details {
+            AuthDetails::ApiKey(key) => assert_eq!(key.as_str(), "override-token"),
+            _ => panic!("Expected API key"),
+        }
+
+        assert_eq!(
+            credential
+                .url_params
+                .get(&URLParam::from("ANTHROPIC_URL".to_string()))
+                .map(|v| v.as_str()),
+            Some("https://override.anthropic.test/v1")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_migration_supports_legacy_claude_env_vars() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "ANTHROPIC_AUTH_TOKEN".to_string(),
+            "test-anthropic-token".to_string(),
+        );
+        env_vars.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            "https://custom.anthropic.com".to_string(),
+        );
+
+        let infra = Arc::new(MockInfra::new(env_vars));
+        let registry = ForgeProviderRepository::new(infra.clone());
+
+        registry.migrate_env_to_file().await.unwrap();
+
+        let credentials_guard = infra.credentials.lock().await;
+        let credentials = credentials_guard.as_ref().unwrap();
+
+        assert!(
+            !credentials.iter().any(|c| c.id == ProviderId::ANTHROPIC),
+            "Should NOT create Anthropic credential when legacy compatible env vars are set"
+        );
+        let anthropic_compat_cred = credentials
+            .iter()
+            .find(|c| c.id == ProviderId::ANTHROPIC_COMPATIBLE)
+            .unwrap();
+
+        match &anthropic_compat_cred.auth_details {
+            AuthDetails::ApiKey(key) => assert_eq!(key.as_str(), "test-anthropic-token"),
+            _ => panic!("Expected API key"),
+        }
+
+        assert_eq!(
+            anthropic_compat_cred
+                .url_params
+                .get(&URLParam::from("ANTHROPIC_URL".to_string()))
+                .map(|v| v.as_str()),
+            Some("https://custom.anthropic.com/v1")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_provider_applies_anthropic_env_overrides() {
+        let mut env_vars = HashMap::new();
+        env_vars.insert(
+            "ANTHROPIC_AUTH_TOKEN".to_string(),
+            "override-token".to_string(),
+        );
+        env_vars.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            "https://override.anthropic.test".to_string(),
+        );
+
+        let infra = Arc::new(MockInfra::new(env_vars));
+        {
+            let mut credentials = infra.credentials.lock().await;
+            *credentials = Some(vec![AuthCredential {
+                id: ProviderId::ANTHROPIC_COMPATIBLE,
+                auth_details: AuthDetails::ApiKey(ApiKey::from("stored-token".to_string())),
+                url_params: HashMap::from([(
+                    URLParam::from("ANTHROPIC_URL".to_string()),
+                    URLParamValue::from("https://stored.anthropic.test".to_string()),
+                )]),
+            }]);
+        }
+
+        let registry = ForgeProviderRepository::new(infra);
+        let configs = get_provider_configs();
+        let anthropic_config = configs
+            .iter()
+            .find(|c| c.id == ProviderId::ANTHROPIC_COMPATIBLE)
+            .unwrap();
+
+        let provider = registry.create_provider(anthropic_config).await.unwrap();
+        let credential = provider.credential.unwrap();
+
+        match credential.auth_details {
+            AuthDetails::ApiKey(key) => assert_eq!(key.as_str(), "override-token"),
+            _ => panic!("Expected API key"),
+        }
+
+        assert_eq!(
+            credential
+                .url_params
+                .get(&URLParam::from("ANTHROPIC_URL".to_string()))
+                .map(|v| v.as_str()),
+            Some("https://override.anthropic.test/v1")
         );
     }
 

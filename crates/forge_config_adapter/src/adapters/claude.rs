@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::error::AdapterError;
 use crate::normalized::{McpServerConfig, NormalizedConfig, NormalizedPermissions, RuleFile};
+use crate::normalized_config_to_settings_json;
 
 /// Adapter that reads Claude Code configuration from `.claude/` project directory.
 ///
@@ -36,11 +37,50 @@ impl crate::ConfigAdapter for ClaudeAdapter {
             let parsed: serde_json::Value = serde_json::from_str(&content)
                 .map_err(|e| AdapterError::json(&settings_path, e))?;
 
-            if let Some(model) = parsed.get("model").and_then(|v| v.as_str()) {
+            if let Some(session) = parsed.get("session") {
+                if let Some(model) = session.get("model_id").and_then(|v| v.as_str()) {
+                    config.model = Some(model.to_string());
+                }
+                if let Some(provider) = session.get("provider_id").and_then(|v| v.as_str()) {
+                    config.provider = Some(provider.to_string());
+                }
+            }
+            if config.model.is_none()
+                && let Some(model) = parsed.get("model").and_then(|v| v.as_str())
+            {
                 config.model = Some(model.to_string());
             }
-            if let Some(provider) = parsed.get("provider").and_then(|v| v.as_str()) {
+            if config.provider.is_none()
+                && let Some(provider) = parsed.get("provider").and_then(|v| v.as_str())
+            {
                 config.provider = Some(provider.to_string());
+            }
+            if let Some(agents) = parsed.get("agents").and_then(|v| v.as_object()) {
+                for (name, agent_value) in agents {
+                    if let Some(agent_obj) = agent_value.as_object() {
+                        let mut agent = crate::normalized::AgentProviderConfig::default();
+                        if let Some(provider) = agent_obj.get("provider").and_then(|v| v.as_str()) {
+                            agent.provider = Some(provider.to_string());
+                        }
+                        if let Some(model) = agent_obj.get("model").and_then(|v| v.as_str()) {
+                            agent.model = Some(model.to_string());
+                        }
+                        if let Some(api_key) = agent_obj.get("api_key").and_then(|v| v.as_str()) {
+                            agent.api_key_env = Some(api_key.to_string());
+                        }
+                        if let Some(base_url) = agent_obj.get("base_url").and_then(|v| v.as_str()) {
+                            agent.base_url = Some(base_url.to_string());
+                        }
+                        if let Some(max_tokens) = agent_obj
+                            .get("parameters")
+                            .and_then(|v| v.get("max_tokens"))
+                            .and_then(|v| v.as_u64())
+                        {
+                            agent.max_tokens = Some(max_tokens as u32);
+                        }
+                        config.agents.insert(name.clone(), agent);
+                    }
+                }
             }
 
             // permissions
@@ -92,18 +132,9 @@ impl crate::ConfigAdapter for ClaudeAdapter {
 
         // Write settings.json
         let settings_path = claude_dir.join("settings.json");
-        let mut settings = serde_json::Map::new();
-        if let Some(ref model) = config.model {
-            settings.insert("model".into(), serde_json::Value::String(model.clone()));
-        }
-        if let Some(ref provider) = config.provider {
-            settings.insert(
-                "provider".into(),
-                serde_json::Value::String(provider.clone()),
-            );
-        }
-        let settings_json = serde_json::to_string_pretty(&settings)
-            .map_err(|e| AdapterError::json(&settings_path, e))?;
+        let settings_json =
+            serde_json::to_string_pretty(&normalized_config_to_settings_json(config))
+                .map_err(|e| AdapterError::json(&settings_path, e))?;
         std::fs::write(&settings_path, settings_json)
             .map_err(|e| AdapterError::io(&settings_path, e))?;
 
@@ -290,6 +321,42 @@ mod tests {
     }
 
     #[test]
+    fn read_parses_session_and_agents_settings_json() {
+        let tmp = TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join("settings.json"),
+            r#"{
+                "session": {
+                    "provider_id": "anthropic",
+                    "model_id": "claude-sonnet-4-20250514"
+                },
+                "agents": {
+                    "sage": {
+                        "provider": "openai",
+                        "model": "gpt-4o",
+                        "api_key": "${OPENAI_API_KEY}",
+                        "base_url": "https://example.com/v1",
+                        "parameters": { "max_tokens": 2048 }
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let config = ClaudeAdapter.read(tmp.path()).unwrap();
+        assert_eq!(config.provider.as_deref(), Some("anthropic"));
+        assert_eq!(config.model.as_deref(), Some("claude-sonnet-4-20250514"));
+        let sage = config.agents.get("sage").unwrap();
+        assert_eq!(sage.provider.as_deref(), Some("openai"));
+        assert_eq!(sage.model.as_deref(), Some("gpt-4o"));
+        assert_eq!(sage.api_key_env.as_deref(), Some("${OPENAI_API_KEY}"));
+        assert_eq!(sage.base_url.as_deref(), Some("https://example.com/v1"));
+        assert_eq!(sage.max_tokens, Some(2048));
+    }
+
+    #[test]
     fn read_parses_valid_settings_json() {
         let tmp = TempDir::new().unwrap();
         let claude_dir = tmp.path().join(".claude");
@@ -407,6 +474,16 @@ mod tests {
         let config = NormalizedConfig {
             model: Some("claude-sonnet-4-20250514".to_string()),
             provider: Some("anthropic".to_string()),
+            agents: HashMap::from([(
+                "sage".to_string(),
+                crate::normalized::AgentProviderConfig {
+                    provider: Some("openai".to_string()),
+                    model: Some("gpt-4o".to_string()),
+                    api_key_env: Some("${OPENAI_API_KEY}".to_string()),
+                    base_url: Some("https://example.com/v1".to_string()),
+                    max_tokens: Some(4096),
+                },
+            )]),
             custom_instructions: Some("Be helpful and concise.".to_string()),
             mcp_servers: HashMap::from([(
                 "test-server".to_string(),
@@ -430,8 +507,16 @@ mod tests {
         assert!(settings_path.is_file(), "settings.json should be created");
         let settings_content = std::fs::read_to_string(&settings_path).unwrap();
         let settings: serde_json::Value = serde_json::from_str(&settings_content).unwrap();
-        assert_eq!(settings["model"], "claude-sonnet-4-20250514");
-        assert_eq!(settings["provider"], "anthropic");
+        assert_eq!(settings["session"]["model_id"], "claude-sonnet-4-20250514");
+        assert_eq!(settings["session"]["provider_id"], "anthropic");
+        assert_eq!(settings["agents"]["sage"]["provider"], "openai");
+        assert_eq!(settings["agents"]["sage"]["model"], "gpt-4o");
+        assert_eq!(settings["agents"]["sage"]["api_key"], "${OPENAI_API_KEY}");
+        assert_eq!(
+            settings["agents"]["sage"]["base_url"],
+            "https://example.com/v1"
+        );
+        assert_eq!(settings["agents"]["sage"]["parameters"]["max_tokens"], 4096);
 
         // CLAUDE.md should exist
         let claude_md = tmp.path().join("CLAUDE.md");

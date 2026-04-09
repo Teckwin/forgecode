@@ -23,6 +23,64 @@ pub use normalized::{
 
 use std::path::Path;
 
+fn normalized_agent_to_json(agent: &AgentProviderConfig) -> serde_json::Value {
+    let mut obj = serde_json::Map::new();
+    if let Some(ref provider) = agent.provider {
+        obj.insert(
+            "provider".into(),
+            serde_json::Value::String(provider.clone()),
+        );
+    }
+    if let Some(ref model) = agent.model {
+        obj.insert("model".into(), serde_json::Value::String(model.clone()));
+    }
+    if let Some(ref api_key_env) = agent.api_key_env {
+        obj.insert(
+            "api_key".into(),
+            serde_json::Value::String(api_key_env.clone()),
+        );
+    }
+    if let Some(ref base_url) = agent.base_url {
+        obj.insert(
+            "base_url".into(),
+            serde_json::Value::String(base_url.clone()),
+        );
+    }
+    if let Some(max_tokens) = agent.max_tokens {
+        obj.insert(
+            "parameters".into(),
+            serde_json::json!({"max_tokens": max_tokens}),
+        );
+    }
+    serde_json::Value::Object(obj)
+}
+
+pub fn normalized_config_to_settings_json(config: &NormalizedConfig) -> serde_json::Value {
+    let mut settings = serde_json::Map::new();
+    if config.model.is_some() || config.provider.is_some() {
+        let mut session = serde_json::Map::new();
+        if let Some(ref provider) = config.provider {
+            session.insert(
+                "provider_id".into(),
+                serde_json::Value::String(provider.clone()),
+            );
+        }
+        if let Some(ref model) = config.model {
+            session.insert("model_id".into(), serde_json::Value::String(model.clone()));
+        }
+        settings.insert("session".into(), serde_json::Value::Object(session));
+    }
+    if !config.agents.is_empty() {
+        let agents = config
+            .agents
+            .iter()
+            .map(|(name, agent)| (name.clone(), normalized_agent_to_json(agent)))
+            .collect::<serde_json::Map<String, serde_json::Value>>();
+        settings.insert("agents".into(), serde_json::Value::Object(agents));
+    }
+    serde_json::Value::Object(settings)
+}
+
 /// Trait implemented by each tool-specific configuration adapter.
 pub trait ConfigAdapter {
     /// Returns a human-readable tool name (e.g. `"claude"`, `"cursor"`).
@@ -98,15 +156,12 @@ pub fn try_auto_migrate(project_dir: &Path) -> bool {
                 return false;
             }
 
-            // Write settings.json if model/provider present
-            if config.model.is_some() || config.provider.is_some() {
-                let settings = serde_json::json!({
-                    "model": config.model,
-                    "provider": config.provider,
-                });
-                if let Ok(json) = serde_json::to_string_pretty(&settings) {
-                    let _ = std::fs::write(forge_dir.join("settings.json"), json);
-                }
+            // Write settings.json with session + agents shape
+            if (config.model.is_some() || config.provider.is_some() || !config.agents.is_empty())
+                && let Ok(json) =
+                    serde_json::to_string_pretty(&normalized_config_to_settings_json(&config))
+            {
+                let _ = std::fs::write(forge_dir.join("settings.json"), json);
             }
 
             // Write FORGE.md from custom instructions
@@ -155,6 +210,48 @@ mod tests {
     #[test]
     fn test_all_adapters_returns_expected_count() {
         assert_eq!(all_adapters().len(), 3);
+    }
+
+    #[test]
+    fn test_try_auto_migrate_writes_session_and_agents_settings() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let claude_dir = tmp.path().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        std::fs::write(
+            claude_dir.join("settings.json"),
+            r#"{
+                "session": {
+                    "provider_id": "anthropic",
+                    "model_id": "claude-sonnet-4-20250514"
+                },
+                "agents": {
+                    "sage": {
+                        "provider": "openai",
+                        "model": "gpt-4o",
+                        "api_key": "${OPENAI_API_KEY}",
+                        "base_url": "https://example.com/v1",
+                        "parameters": { "max_tokens": 2048 }
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        assert!(try_auto_migrate(tmp.path()));
+
+        let settings_path = tmp.path().join(".forge/settings.json");
+        let parsed: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(settings_path).unwrap()).unwrap();
+        assert_eq!(parsed["session"]["provider_id"], "anthropic");
+        assert_eq!(parsed["session"]["model_id"], "claude-sonnet-4-20250514");
+        assert_eq!(parsed["agents"]["sage"]["provider"], "openai");
+        assert_eq!(parsed["agents"]["sage"]["model"], "gpt-4o");
+        assert_eq!(parsed["agents"]["sage"]["api_key"], "${OPENAI_API_KEY}");
+        assert_eq!(
+            parsed["agents"]["sage"]["base_url"],
+            "https://example.com/v1"
+        );
+        assert_eq!(parsed["agents"]["sage"]["parameters"]["max_tokens"], 2048);
     }
 
     #[test]
